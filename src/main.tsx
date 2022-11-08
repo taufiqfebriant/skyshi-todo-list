@@ -3,7 +3,10 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import 'virtual:svg-icons-register';
 import './index.css';
-import Dashboard from './routes/dashboard';
+import Dashboard, {
+	action as dashboardAction,
+	loader as dashboardLoader
+} from './routes/dashboard';
 import Root from './routes/root';
 
 const router = createBrowserRouter([
@@ -13,7 +16,9 @@ const router = createBrowserRouter([
 		children: [
 			{
 				path: '/',
-				element: <Dashboard />
+				element: <Dashboard />,
+				action: dashboardAction,
+				loader: dashboardLoader
 			}
 		]
 	}
