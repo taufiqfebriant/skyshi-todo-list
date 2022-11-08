@@ -1,25 +1,63 @@
+import { Dialog } from '@headlessui/react';
 import dayjs from 'dayjs';
 import { useHead } from 'hoofd';
-import { Form, json, Link, useLoaderData } from 'react-router-dom';
+import { useState } from 'react';
+import {
+	ActionFunctionArgs,
+	Form,
+	json,
+	Link,
+	useActionData,
+	useLoaderData,
+	useSubmit
+} from 'react-router-dom';
 import createActivity from '../actions/createActivity';
+import deleteActivity from '../actions/deleteActivity';
 import SvgIcon from '../components/SvgIcon';
 import getActivities, { JsonResponse } from '../loaders/getActivities';
+
+type LoaderData = {
+	data: JsonResponse['data'];
+};
 
 export const loader = async () => {
 	const data = await getActivities();
 	return json({ data });
 };
 
-type LoaderData = {
-	data: JsonResponse['data'];
+type ActionSubmission = {
+	_action: 'create' | 'delete';
+	id: number;
 };
 
-export const action = async () => {
-	try {
-		await createActivity();
-	} catch (e) {
-		console.log('Failed to create activity');
+type ActionData = Pick<ActionSubmission, '_action'> & {
+	success: boolean;
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.formData();
+
+	const data = Object.fromEntries(formData) as unknown as ActionSubmission;
+
+	let success = true;
+
+	if (data._action === 'create') {
+		try {
+			await createActivity();
+		} catch {
+			success = false;
+		}
 	}
+
+	if (data._action === 'delete') {
+		try {
+			await deleteActivity({ id: data.id });
+		} catch {
+			success = false;
+		}
+	}
+
+	return json({ _action: data._action, success });
 };
 
 const Dashboard = () => {
@@ -27,7 +65,36 @@ const Dashboard = () => {
 		title: 'To Do List - Dashboard'
 	});
 
+	const [isOpen, setIsOpen] = useState(false);
+	const [activity, setActivity] = useState<LoaderData['data'][number] | null>(null);
+
+	const handleOpen = (activity: LoaderData['data'][number]) => {
+		setActivity(activity);
+		setIsOpen(true);
+	};
+
+	const handleClose = () => {
+		setActivity(null);
+		setIsOpen(false);
+	};
+
+	const submit = useSubmit();
+
+	const handleDelete = () => {
+		if (activity) {
+			const formData = new FormData();
+
+			formData.append('_action', 'delete');
+			formData.append('id', `${activity.id}`);
+
+			submit(formData, { method: 'post' });
+			setIsOpen(false);
+		}
+	};
+
 	const loaderData = useLoaderData() as LoaderData;
+
+	const actionData = useActionData() as ActionData;
 
 	return (
 		<>
@@ -39,6 +106,8 @@ const Dashboard = () => {
 						type="submit"
 						className="flex h-[3.375rem] items-center gap-x-[.375rem] rounded-[2.8125rem] bg-[#16ABF8] pl-[1.375rem] pr-[1.8125rem] text-white"
 						data-cy="activity-add-button"
+						name="_action"
+						value="create"
 					>
 						<SvgIcon name="plus" width={24} height={24} />
 
@@ -64,12 +133,49 @@ const Dashboard = () => {
 									{dayjs(activity.created_at).format('DD MMMM YYYY')}
 								</p>
 
-								<SvgIcon name="trash" width={24} height={24} color="#888888" />
+								<button type="button" onClick={() => handleOpen(activity)}>
+									<SvgIcon name="trash" width={24} height={24} color="#888888" />
+								</button>
 							</div>
 						</article>
 					))}
 				</article>
 			) : null}
+
+			<Dialog open={isOpen} onClose={handleClose} className="relative z-50">
+				{/* The backdrop, rendered as a fixed sibling to the panel container */}
+				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+
+				<div className="fixed inset-0 flex items-center justify-center p-4">
+					<Dialog.Panel className="h-[22.1875rem] w-[30.625rem] rounded-xl bg-white pt-10 pr-[3.875rem] pb-[2.6875rem] pl-[3.9375rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]">
+						<div className="flex justify-center text-[#ED4C5C]">
+							<SvgIcon name="warning" width={84} height={84} color="#ED4C5C" />
+						</div>
+
+						<p className="mt-[2.125rem] text-center text-lg font-medium leading-[1.6875rem]">
+							Apakah anda yakin menghapus activity{' '}
+							<span className="font-bold">&quot;{activity?.title}&quot;</span>?
+						</p>
+
+						<div className="mt-[2.875rem] flex justify-center gap-x-5">
+							<button
+								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#F4F4F4] text-lg font-semibold leading-[1.6875rem] text-[#4A4A4A]"
+								onClick={handleClose}
+							>
+								Batal
+							</button>
+
+							<button
+								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#ED4C5C] text-lg font-semibold leading-[1.6875rem] text-white"
+								type="button"
+								onClick={handleDelete}
+							>
+								Hapus
+							</button>
+						</div>
+					</Dialog.Panel>
+				</div>
+			</Dialog>
 		</>
 	);
 };
