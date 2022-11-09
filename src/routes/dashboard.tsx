@@ -15,6 +15,7 @@ import {
 import createActivity from '../actions/createActivity';
 import deleteActivity from '../actions/deleteActivity';
 import SvgIcon from '../components/SvgIcon';
+import emptyStateImg from '../images/dashboard-empty-state.png';
 import type { JsonResponse } from '../loaders/getActivities';
 import getActivities from '../loaders/getActivities';
 
@@ -121,7 +122,9 @@ const DashboardPage = () => {
 	return (
 		<>
 			<div className="mt-[2.6875rem] flex justify-between">
-				<h1 className="text-4xl font-bold leading-[3.375rem]">Activity</h1>
+				<h1 className="text-4xl font-bold leading-[3.375rem]" data-cy="activity-title">
+					Activity
+				</h1>
 
 				<Form method="post">
 					{/** TODO: Tambah style untuk disabled state */}
@@ -143,28 +146,47 @@ const DashboardPage = () => {
 			{/** TODO: Tambah layout ketika activity kosong */}
 			{loaderData.data.length ? (
 				<article className="my-[3.0625rem] grid grid-cols-4 gap-x-5 gap-y-[1.625rem]">
-					{loaderData.data.map(activity => (
+					{loaderData.data.map((activity, index) => (
 						<article
 							key={activity.id}
 							className="flex h-[14.625rem] flex-col justify-between rounded-xl bg-white p-[1.375rem_1.625rem_1.5625rem_1.6875rem] shadow-[0_6px_10px_rgba(0,0,0,.1)]"
+							data-cy={`activity-item-${index}`}
 						>
 							<Link to={`/detail/${activity.id}`} className="flex-1">
-								<h2 className="text-lg font-bold">{activity.title}</h2>
+								<h2 className="text-lg font-bold" data-cy="activity-item-title">
+									{activity.title}
+								</h2>
 							</Link>
 
 							<div className="flex items-center justify-between text-[#888888]">
-								<p className="text-sm font-medium leading-[1.3125rem]">
+								<p className="text-sm font-medium leading-[1.3125rem]" data-cy="activity-item-date">
 									{dayjs(activity.created_at).format('DD MMMM YYYY')}
 								</p>
 
-								<button type="button" onClick={() => handleOpen(activity)}>
+								<button
+									type="button"
+									onClick={() => handleOpen(activity)}
+									data-cy="activity-item-delete-button"
+								>
 									<SvgIcon name="trash" width={24} height={24} color="#888888" />
 								</button>
 							</div>
 						</article>
 					))}
 				</article>
-			) : null}
+			) : (
+				<Form method="post" className="my-[3.6875rem]">
+					<button
+						type="submit"
+						name="_action"
+						value="create"
+						disabled={isCreating}
+						data-cy="activity-empty-state"
+					>
+						<img src={emptyStateImg} alt="Add activity illustration" />
+					</button>
+				</Form>
+			)}
 
 			{/** TODO: Tambah animasi */}
 			<Dialog open={isOpen} onClose={handleClose} className="relative z-50">
@@ -172,12 +194,18 @@ const DashboardPage = () => {
 				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
 
 				<div className="fixed inset-0 flex items-center justify-center p-4">
-					<Dialog.Panel className="h-[22.1875rem] w-[30.625rem] rounded-xl bg-white pt-10 pr-[3.875rem] pb-[2.6875rem] pl-[3.9375rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]">
-						<div className="flex justify-center text-[#ED4C5C]">
+					<Dialog.Panel
+						className="h-[22.1875rem] w-[30.625rem] rounded-xl bg-white pt-10 pr-[3.875rem] pb-[2.6875rem] pl-[3.9375rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]"
+						data-cy="modal-delete"
+					>
+						<div className="flex justify-center text-[#ED4C5C]" data-cy="modal-delete-icon">
 							<SvgIcon name="warning" width={84} height={84} color="#ED4C5C" />
 						</div>
 
-						<p className="mt-[2.125rem] text-center text-lg font-medium leading-[1.6875rem]">
+						<p
+							className="mt-[2.125rem] text-center text-lg font-medium leading-[1.6875rem]"
+							data-cy="modal-delete-title"
+						>
 							Apakah anda yakin menghapus activity{' '}
 							<span className="font-bold">&quot;{activity?.title}&quot;</span>?
 						</p>
@@ -186,6 +214,7 @@ const DashboardPage = () => {
 							<button
 								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#F4F4F4] text-lg font-semibold leading-[1.6875rem] text-[#4A4A4A]"
 								onClick={handleClose}
+								data-cy="modal-delete-cancel-button"
 							>
 								Batal
 							</button>
@@ -196,6 +225,7 @@ const DashboardPage = () => {
 								type="button"
 								onClick={handleDelete}
 								disabled={isDeleting}
+								data-cy="modal-delete-confirm-button"
 							>
 								Hapus
 							</button>
@@ -218,12 +248,18 @@ const DashboardPage = () => {
 					<Dialog.Panel
 						className="flex h-[3.625rem] w-[30.625rem] items-center gap-x-[.625rem] rounded-xl bg-white py-[1.0625rem] px-[1.6875rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]"
 						ref={refResultDiv}
+						data-cy="modal-information"
 					>
-						<div className="text-[#00A790]">
+						<div className="text-[#00A790]" data-cy="modal-information-icon">
 							<SvgIcon name="info" width={24} height={24} color="#00A790" />
 						</div>
 
-						<p className="text-sm font-medium leading-[1.3125rem]">Activity berhasil dihapus</p>
+						<p
+							className="text-sm font-medium leading-[1.3125rem]"
+							data-cy="modal-information-title"
+						>
+							Activity berhasil dihapus
+						</p>
 					</Dialog.Panel>
 				</div>
 			</Dialog>

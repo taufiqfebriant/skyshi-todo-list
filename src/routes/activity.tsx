@@ -292,7 +292,7 @@ const ActivityPage = () => {
 			</div>
 
 			{loaderData.data.todo_items.length ? (
-				<article className="mt-12 flex flex-col gap-y-[.625rem]">
+				<article className="my-12 flex flex-col gap-y-[.625rem]">
 					{loaderData.data.todo_items.map(todo => (
 						<article
 							key={todo.id}

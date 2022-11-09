@@ -4,11 +4,11 @@ interface Props extends React.ComponentPropsWithoutRef<'svg'> {
 	color?: string;
 }
 
-const SvgIcon = ({ name, prefix = 'icon', color = '#ffffff', ...props }: Props) => {
+const SvgIcon = ({ name, prefix = 'icon', color = '#ffffff', ...rest }: Props) => {
 	const symbolId = `#${prefix}-${name}`;
 
 	return (
-		<svg {...props} aria-hidden="true">
+		<svg {...rest} aria-hidden="true">
 			<use href={symbolId} fill={color} />
 		</svg>
 	);
