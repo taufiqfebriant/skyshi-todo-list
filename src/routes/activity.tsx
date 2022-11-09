@@ -2,7 +2,7 @@ import { Combobox, Dialog } from '@headlessui/react';
 import clsx from 'clsx';
 import { makeDomainFunction } from 'domain-functions';
 import { useHead } from 'hoofd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router-dom';
 import {
@@ -189,6 +189,19 @@ const ActivityPage = () => {
 			setIsConfirmDeletionOpen(false);
 		}
 	};
+
+	const actionData = useActionData();
+	useEffect(() => {
+		let close = true;
+
+		if (actionData && close) {
+			setIsOpen(false);
+		}
+
+		return () => {
+			close = false;
+		};
+	}, [actionData]);
 
 	return (
 		<>
