@@ -18,6 +18,7 @@ import {
 import { createForm, createFormAction } from 'remix-forms';
 import { z } from 'zod';
 import createTodo from '../actions/createTodo';
+import deleteTodo from '../actions/deleteTodo';
 import SvgIcon from '../components/SvgIcon';
 import type { Activity } from '../loaders/getActivity';
 import getActivity, { Priority } from '../loaders/getActivity';
@@ -44,22 +45,49 @@ const formAction = createFormAction({ json, redirect });
 
 const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, useActionData });
 
-const schema = z.object({
+const createSchema = z.object({
 	activity_group_id: z.string().min(1),
 	priority: z.nativeEnum(Priority).default(Priority.VeryHigh),
-	title: z.string().min(1)
+	title: z.string().min(1),
+	_action: z.enum(['create', 'delete'])
 });
 
-export type Schema = z.infer<typeof schema>;
+const createMutation = makeDomainFunction(createSchema)(async values => {
+	return createTodo(values);
+});
 
-const mutation = makeDomainFunction(schema)(async values => createTodo(values));
+export type CreateSchema = z.infer<typeof createSchema>;
+
+const deleteSchema = z.object({
+	id: z.number().min(1),
+	_action: z.enum(['create', 'delete'])
+});
+
+const deleteMutation = makeDomainFunction(deleteSchema)(async values => {
+	return deleteTodo({ id: values.id });
+});
+
+type DeleteSchema = z.infer<typeof deleteSchema>;
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	return formAction({
-		request,
-		schema,
-		mutation
-	});
+	const formData = await request.clone().formData();
+	const data = Object.fromEntries(formData) as CreateSchema | DeleteSchema;
+
+	if (data._action === 'create') {
+		return formAction({
+			request,
+			schema: createSchema,
+			mutation: createMutation
+		});
+	}
+
+	if (data._action === 'delete') {
+		return formAction({
+			request,
+			schema: deleteSchema,
+			mutation: deleteMutation
+		});
+	}
 };
 
 type PriorityOption = {
@@ -123,6 +151,7 @@ const ActivityPage = () => {
 	const loaderData = useLoaderData() as LoaderData;
 
 	const [selectedPriority, setSelectedPriority] = useState(priorities[0]);
+	const [editActivityTitle, setEditActivityTitle] = useState(false);
 
 	const [query, setQuery] = useState('');
 	const filteredPriority =
@@ -132,6 +161,35 @@ const ActivityPage = () => {
 					return priority.name.toLowerCase().includes(query.toLowerCase());
 			  });
 
+	const [deleteData, setDeleteData] = useState<
+		typeof loaderData['data']['todo_items'][number] | null
+	>(null);
+	const [isConfirmDeletionOpen, setIsConfirmDeletionOpen] = useState(false);
+
+	const handleTrashClick = (todo: typeof loaderData['data']['todo_items'][number]) => {
+		setDeleteData(todo);
+		setIsConfirmDeletionOpen(true);
+	};
+
+	const handleConfirmDeleteClose = () => {
+		setDeleteData(null);
+		setIsConfirmDeletionOpen(false);
+	};
+
+	const submit = useSubmit();
+
+	const handleDelete = () => {
+		if (deleteData) {
+			const formData = new FormData();
+
+			formData.append('_action', 'delete');
+			formData.append('id', `${deleteData.id}`);
+
+			submit(formData, { method: 'post' });
+			setIsConfirmDeletionOpen(false);
+		}
+	};
+
 	return (
 		<>
 			<div className="mt-[2.6875rem] flex justify-between">
@@ -140,9 +198,24 @@ const ActivityPage = () => {
 						<SvgIcon name="chevron-left" width={32} height={32} color="#111111" />
 					</Link>
 
-					<h1 className="text-4xl font-bold leading-[3.375rem]">{loaderData.data.title}</h1>
+					{editActivityTitle ? (
+						<input
+							type="text"
+							name="activity_title"
+							defaultValue={loaderData.data.title}
+							className="border-b border-[#111111] bg-transparent text-4xl font-bold leading-[3.375rem] focus:outline-none"
+							onBlur={() => console.log('blurred')}
+						/>
+					) : (
+						<h1
+							className="text-4xl font-bold leading-[3.375rem]"
+							onClick={() => setEditActivityTitle(true)}
+						>
+							{loaderData.data.title}
+						</h1>
+					)}
 
-					<div className="text-[#A4A4A4]">
+					<div className="pr-10 text-[#A4A4A4]">
 						<SvgIcon name="pencil" width={24} height={24} color="#A4A4A4" />
 					</div>
 				</div>
@@ -187,11 +260,17 @@ const ActivityPage = () => {
 
 							<h2 className="ml-4 text-lg font-medium leading-[1.6875rem]">{todo.title}</h2>
 
-							<button type="button" className="ml-4 flex-1 text-[#C4C4C4]">
-								<SvgIcon name="pencil" width={20} height={20} color="#C4C4C4" />
-							</button>
+							<div className="flex flex-1 items-center">
+								<button type="button" className="ml-4 w-fit text-[#C4C4C4]">
+									<SvgIcon name="pencil" width={20} height={20} color="#C4C4C4" />
+								</button>
+							</div>
 
-							<button type="button" className="text-[#888888]">
+							<button
+								type="button"
+								className="text-[#888888]"
+								onClick={() => handleTrashClick(todo)}
+							>
 								<SvgIcon name="trash" width={24} height={24} color="#888888" />
 							</button>
 						</article>
@@ -217,14 +296,15 @@ const ActivityPage = () => {
 						</div>
 
 						<Form
-							schema={schema}
+							schema={createSchema}
 							method="post"
-							hiddenFields={['activity_group_id']}
-							values={{ activity_group_id: loaderData.data.id }}
+							hiddenFields={['activity_group_id', '_action']}
+							values={{ activity_group_id: loaderData.data.id, _action: 'create' }}
 						>
 							{({ Field, Button, control, formState }) => (
 								<>
 									<Field name="activity_group_id" />
+									<Field name="_action" />
 
 									<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
 										<Field name="title">
@@ -354,6 +434,47 @@ const ActivityPage = () => {
 								</>
 							)}
 						</Form>
+					</Dialog.Panel>
+				</div>
+			</Dialog>
+
+			{/** TODO: Tambah animasi */}
+			<Dialog
+				open={isConfirmDeletionOpen}
+				onClose={handleConfirmDeleteClose}
+				className="relative z-50"
+			>
+				{/* The backdrop, rendered as a fixed sibling to the panel container */}
+				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+
+				<div className="fixed inset-0 flex items-center justify-center p-4">
+					<Dialog.Panel className="h-[22.1875rem] w-[30.625rem] rounded-xl bg-white pt-10 pr-[3.875rem] pb-[2.6875rem] pl-[3.9375rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]">
+						<div className="flex justify-center text-[#ED4C5C]">
+							<SvgIcon name="warning" width={84} height={84} color="#ED4C5C" />
+						</div>
+
+						<p className="mt-[2.125rem] text-center text-lg font-medium leading-[1.6875rem]">
+							Apakah anda yakin menghapus List Item{' '}
+							<span className="font-bold">&quot;{deleteData?.title}&quot;</span>?
+						</p>
+
+						<div className="mt-[2.875rem] flex justify-center gap-x-5">
+							<button
+								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#F4F4F4] text-lg font-semibold leading-[1.6875rem] text-[#4A4A4A]"
+								onClick={handleConfirmDeleteClose}
+							>
+								Batal
+							</button>
+
+							{/** TODO: Tambah style untuk disabled state */}
+							<button
+								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#ED4C5C] text-lg font-semibold leading-[1.6875rem] text-white"
+								type="button"
+								onClick={handleDelete}
+							>
+								Hapus
+							</button>
+						</div>
 					</Dialog.Panel>
 				</div>
 			</Dialog>
