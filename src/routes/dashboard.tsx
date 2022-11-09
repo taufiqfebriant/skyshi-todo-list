@@ -1,7 +1,7 @@
 import { Dialog } from '@headlessui/react';
 import dayjs from 'dayjs';
 import { useHead } from 'hoofd';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	ActionFunctionArgs,
 	Form,
@@ -9,6 +9,7 @@ import {
 	Link,
 	useActionData,
 	useLoaderData,
+	useNavigation,
 	useSubmit
 } from 'react-router-dom';
 import createActivity from '../actions/createActivity';
@@ -68,6 +69,12 @@ const Dashboard = () => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [activity, setActivity] = useState<LoaderData['data'][number] | null>(null);
 
+	const navigation = useNavigation();
+	const isCreating =
+		navigation.state === 'submitting' && navigation.formData.get('_action') === 'create';
+	const isDeleting =
+		navigation.state === 'submitting' && navigation.formData.get('_action') === 'delete';
+
 	const handleOpen = (activity: LoaderData['data'][number]) => {
 		setActivity(activity);
 		setIsOpen(true);
@@ -94,7 +101,21 @@ const Dashboard = () => {
 
 	const loaderData = useLoaderData() as LoaderData;
 
-	const actionData = useActionData() as ActionData;
+	const actionData = useActionData() as ActionData | undefined;
+	const [isResultOpen, setIsResultOpen] = useState(false);
+	const refResultDiv = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		let isSuccessDeletion = actionData?._action === 'delete' && actionData?.success;
+
+		if (isSuccessDeletion) {
+			setIsResultOpen(true);
+		}
+
+		return () => {
+			isSuccessDeletion = false;
+		};
+	}, [actionData]);
 
 	return (
 		<>
@@ -102,12 +123,14 @@ const Dashboard = () => {
 				<h1 className="text-4xl font-bold leading-[3.375rem]">Activity</h1>
 
 				<Form method="post">
+					{/** TODO: Tambah style untuk disabled state */}
 					<button
 						type="submit"
 						className="flex h-[3.375rem] items-center gap-x-[.375rem] rounded-[2.8125rem] bg-[#16ABF8] pl-[1.375rem] pr-[1.8125rem] text-white"
 						data-cy="activity-add-button"
 						name="_action"
 						value="create"
+						disabled={isCreating}
 					>
 						<SvgIcon name="plus" width={24} height={24} />
 
@@ -142,6 +165,7 @@ const Dashboard = () => {
 				</article>
 			) : null}
 
+			{/** TODO: Tambah animasi */}
 			<Dialog open={isOpen} onClose={handleClose} className="relative z-50">
 				{/* The backdrop, rendered as a fixed sibling to the panel container */}
 				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
@@ -165,14 +189,40 @@ const Dashboard = () => {
 								Batal
 							</button>
 
+							{/** TODO: Tambah style untuk disabled state */}
 							<button
 								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#ED4C5C] text-lg font-semibold leading-[1.6875rem] text-white"
 								type="button"
 								onClick={handleDelete}
+								disabled={isDeleting}
 							>
 								Hapus
 							</button>
 						</div>
+					</Dialog.Panel>
+				</div>
+			</Dialog>
+
+			{/** TODO: Tambah animasi */}
+			<Dialog
+				open={isResultOpen}
+				onClose={() => setIsResultOpen(false)}
+				className="relative z-50"
+				initialFocus={refResultDiv}
+			>
+				{/* The backdrop, rendered as a fixed sibling to the panel container */}
+				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+
+				<div className="fixed inset-0 flex items-center justify-center p-4">
+					<Dialog.Panel
+						className="flex h-[3.625rem] w-[30.625rem] items-center gap-x-[.625rem] rounded-xl bg-white py-[1.0625rem] px-[1.6875rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]"
+						ref={refResultDiv}
+					>
+						<div className="text-[#00A790]">
+							<SvgIcon name="info" width={24} height={24} color="#00A790" />
+						</div>
+
+						<p className="text-sm font-medium leading-[1.3125rem]">Activity berhasil dihapus</p>
 					</Dialog.Panel>
 				</div>
 			</Dialog>
