@@ -13,7 +13,7 @@ export default defineConfig({
 				families: [
 					{
 						name: 'Poppins',
-						styles: 'wght@500;600;700'
+						styles: 'wght@400;500;600;700'
 					}
 				]
 			}

@@ -3,9 +3,13 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import 'virtual:svg-icons-register';
 import './index.css';
-import Dashboard, {
-	action as dashboardAction,
-	loader as dashboardLoader
+import ActivityPage, {
+	action as activityPageAction,
+	loader as activityPageLoader
+} from './routes/activity';
+import DashboardPage, {
+	action as dashboardPageAction,
+	loader as dashboardPageLoader
 } from './routes/dashboard';
 import Root from './routes/root';
 
@@ -16,9 +20,15 @@ const router = createBrowserRouter([
 		children: [
 			{
 				path: '/',
-				element: <Dashboard />,
-				action: dashboardAction,
-				loader: dashboardLoader
+				element: <DashboardPage />,
+				action: dashboardPageAction,
+				loader: dashboardPageLoader
+			},
+			{
+				path: '/detail/:id',
+				element: <ActivityPage />,
+				loader: activityPageLoader,
+				action: activityPageAction
 			}
 		]
 	}

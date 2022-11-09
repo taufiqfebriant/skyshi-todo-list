@@ -2,8 +2,8 @@ import { Dialog } from '@headlessui/react';
 import dayjs from 'dayjs';
 import { useHead } from 'hoofd';
 import { useEffect, useRef, useState } from 'react';
+import type { ActionFunctionArgs } from 'react-router-dom';
 import {
-	ActionFunctionArgs,
 	Form,
 	json,
 	Link,
@@ -15,7 +15,8 @@ import {
 import createActivity from '../actions/createActivity';
 import deleteActivity from '../actions/deleteActivity';
 import SvgIcon from '../components/SvgIcon';
-import getActivities, { JsonResponse } from '../loaders/getActivities';
+import type { JsonResponse } from '../loaders/getActivities';
+import getActivities from '../loaders/getActivities';
 
 type LoaderData = {
 	data: JsonResponse['data'];
@@ -61,7 +62,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return json({ _action: data._action, success });
 };
 
-const Dashboard = () => {
+const DashboardPage = () => {
 	useHead({
 		title: 'To Do List - Dashboard'
 	});
@@ -230,4 +231,4 @@ const Dashboard = () => {
 	);
 };
 
-export default Dashboard;
+export default DashboardPage;
