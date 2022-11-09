@@ -1,6 +1,6 @@
-import type { Schema } from '../routes/activity';
+import type { CreateSchema } from '../routes/activity';
 
-const createTodo = async (params: Schema) => {
+const createTodo = async (params: CreateSchema) => {
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items`, {
 		method: 'POST',
 		body: JSON.stringify(params),

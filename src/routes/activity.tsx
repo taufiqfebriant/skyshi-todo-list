@@ -17,6 +17,7 @@ import {
 } from 'react-router-dom';
 import { createForm, createFormAction } from 'remix-forms';
 import { z } from 'zod';
+import checkTodo from '../actions/checkTodo';
 import createTodo from '../actions/createTodo';
 import deleteTodo from '../actions/deleteTodo';
 import SvgIcon from '../components/SvgIcon';
@@ -45,11 +46,13 @@ const formAction = createFormAction({ json, redirect });
 
 const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, useActionData });
 
+const ACTIONS = ['create', 'delete', 'check', 'update'] as const;
+
 const createSchema = z.object({
 	activity_group_id: z.string().min(1),
 	priority: z.nativeEnum(Priority).default(Priority.VeryHigh),
 	title: z.string().min(1),
-	_action: z.enum(['create', 'delete'])
+	_action: z.enum(ACTIONS)
 });
 
 const createMutation = makeDomainFunction(createSchema)(async values => {
@@ -60,7 +63,7 @@ export type CreateSchema = z.infer<typeof createSchema>;
 
 const deleteSchema = z.object({
 	id: z.number().min(1),
-	_action: z.enum(['create', 'delete'])
+	_action: z.enum(ACTIONS)
 });
 
 const deleteMutation = makeDomainFunction(deleteSchema)(async values => {
@@ -68,6 +71,19 @@ const deleteMutation = makeDomainFunction(deleteSchema)(async values => {
 });
 
 type DeleteSchema = z.infer<typeof deleteSchema>;
+
+const checkSchema = z.object({
+	id: z.number().min(1),
+	priority: z.nativeEnum(Priority),
+	is_active: z.number().int().gte(0).lte(1),
+	_action: z.enum(ACTIONS)
+});
+
+const checkMutation = makeDomainFunction(checkSchema)(async values => {
+	return checkTodo(values);
+});
+
+export type CheckSchema = z.infer<typeof checkSchema>;
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
@@ -86,6 +102,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			request,
 			schema: deleteSchema,
 			mutation: deleteMutation
+		});
+	}
+
+	if (data._action === 'check') {
+		return formAction({
+			request,
+			schema: checkSchema,
+			mutation: checkMutation
 		});
 	}
 };
@@ -161,29 +185,29 @@ const ActivityPage = () => {
 					return priority.name.toLowerCase().includes(query.toLowerCase());
 			  });
 
-	const [deleteData, setDeleteData] = useState<
+	const [selectedTodo, setSelectedTodo] = useState<
 		typeof loaderData['data']['todo_items'][number] | null
 	>(null);
 	const [isConfirmDeletionOpen, setIsConfirmDeletionOpen] = useState(false);
 
 	const handleTrashClick = (todo: typeof loaderData['data']['todo_items'][number]) => {
-		setDeleteData(todo);
+		setSelectedTodo(todo);
 		setIsConfirmDeletionOpen(true);
 	};
 
 	const handleConfirmDeleteClose = () => {
-		setDeleteData(null);
+		setSelectedTodo(null);
 		setIsConfirmDeletionOpen(false);
 	};
 
 	const submit = useSubmit();
 
 	const handleDelete = () => {
-		if (deleteData) {
+		if (selectedTodo) {
 			const formData = new FormData();
 
 			formData.append('_action', 'delete');
-			formData.append('id', `${deleteData.id}`);
+			formData.append('id', `${selectedTodo.id}`);
 
 			submit(formData, { method: 'post' });
 			setIsConfirmDeletionOpen(false);
@@ -202,6 +226,18 @@ const ActivityPage = () => {
 			close = false;
 		};
 	}, [actionData]);
+
+	const handleTodoCheck = (todo: typeof loaderData['data']['todo_items'][number]) => {
+		const formData = new FormData();
+
+		formData.append('_action', 'check');
+		formData.append('id', `${todo.id}`);
+		formData.append('priority', `${todo.priority}`);
+		formData.append('is_active', todo.is_active ? '0' : '1');
+
+		submit(formData, { method: 'post' });
+		setIsConfirmDeletionOpen(false);
+	};
 
 	return (
 		<>
@@ -262,7 +298,12 @@ const ActivityPage = () => {
 							key={todo.id}
 							className="flex items-center rounded-xl bg-white pt-[1.625rem] pr-6 pb-[1.6875rem] pl-7 shadow-[0_6px_10px_rgba(0,0,0,.1)]"
 						>
-							<input type="checkbox" className="h-5 w-5" />
+							<input
+								type="checkbox"
+								className="h-5 w-5"
+								checked={!todo.is_active}
+								onChange={() => handleTodoCheck(todo)}
+							/>
 
 							<Color
 								color={
@@ -271,7 +312,13 @@ const ActivityPage = () => {
 								className="ml-[1.375rem] h-[.5625rem] w-[.5625rem]"
 							/>
 
-							<h2 className="ml-4 text-lg font-medium leading-[1.6875rem]">{todo.title}</h2>
+							<h2
+								className={clsx('ml-4 text-lg font-medium leading-[1.6875rem]', {
+									'text-[#888888] line-through': !todo.is_active
+								})}
+							>
+								{todo.title}
+							</h2>
 
 							<div className="flex flex-1 items-center">
 								<button type="button" className="ml-4 w-fit text-[#C4C4C4]">
@@ -468,7 +515,7 @@ const ActivityPage = () => {
 
 						<p className="mt-[2.125rem] text-center text-lg font-medium leading-[1.6875rem]">
 							Apakah anda yakin menghapus List Item{' '}
-							<span className="font-bold">&quot;{deleteData?.title}&quot;</span>?
+							<span className="font-bold">&quot;{selectedTodo?.title}&quot;</span>?
 						</p>
 
 						<div className="mt-[2.875rem] flex justify-center gap-x-5">

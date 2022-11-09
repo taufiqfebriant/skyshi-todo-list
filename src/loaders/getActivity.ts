@@ -14,7 +14,7 @@ export type Activity = {
 		id: number;
 		title: string;
 		activity_group_id: number;
-		is_active: number;
+		is_active: 0 | 1;
 		priority: Priority;
 		color: string;
 	}>;
