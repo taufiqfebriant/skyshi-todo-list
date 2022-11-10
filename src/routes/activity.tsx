@@ -579,7 +579,17 @@ const ActivityPage = () => {
 																{...rest}
 															>
 																<Listbox.Button data-cy="modal-add-priority-dropdown">
-																	{selectedPriority.display}
+																	<div
+																		data-cy="modal-add-priority-item"
+																		className="flex items-center"
+																	>
+																		<Color
+																			color={selectedPriority.color}
+																			className="h-[.875rem] w-[.875rem]"
+																		/>
+
+																		<span>{selectedPriority.display}</span>
+																	</div>
 																</Listbox.Button>
 
 																<Listbox.Options>
