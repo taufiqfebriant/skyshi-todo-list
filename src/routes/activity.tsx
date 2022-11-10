@@ -317,7 +317,10 @@ const ActivityPage = () => {
 				<div className="flex items-center gap-x-[1.125rem]">
 					{loaderData.data.todo_items.length ? (
 						<Listbox value={selectedSort} onChange={setSelectedSort}>
-							<Listbox.Button className="flex h-[3.375rem] w-[3.375rem] items-center justify-center rounded-[2.8125rem] border border-[#E5E5E5] text-[#888888]">
+							<Listbox.Button
+								className="flex h-[3.375rem] w-[3.375rem] items-center justify-center rounded-[2.8125rem] border border-[#E5E5E5] text-[#888888]"
+								data-cy="todo-sort-button"
+							>
 								<SvgIcon name="sort" width={24} height={24} color="#888888" />
 							</Listbox.Button>
 
