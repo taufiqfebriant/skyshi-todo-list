@@ -383,22 +383,22 @@ const ActivityPage = () => {
 								className="w-[14.6875rem] bg-white text-[#4A4A4A]"
 								data-cy="sort-parent"
 							>
-								<Listbox.Option value="latest" className="py-[.875rem]" data-cy="sort-latest">
+								<Listbox.Option value="latest" className="py-[.875rem]" data-cy="sort-selection">
 									Terbaru
 								</Listbox.Option>
-								<Listbox.Option value="oldest" className="py-[.875rem]" data-cy="sort-oldest">
+								<Listbox.Option value="oldest" className="py-[.875rem]" data-cy="sort-selection">
 									Terlama
 								</Listbox.Option>
-								<Listbox.Option value="az" className="py-[.875rem]" data-cy="sort-az">
+								<Listbox.Option value="az" className="py-[.875rem]" data-cy="sort-selection">
 									A-Z
 								</Listbox.Option>
-								<Listbox.Option value="za" className="py-[.875rem]" data-cy="sort-za">
+								<Listbox.Option value="za" className="py-[.875rem]" data-cy="sort-selection">
 									Z-A
 								</Listbox.Option>
 								<Listbox.Option
 									value="unfinished"
 									className="py-[.875rem]"
-									data-cy="sort-unfinished"
+									data-cy="sort-selection"
 								>
 									Belum Selesai
 								</Listbox.Option>
