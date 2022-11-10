@@ -1,9 +1,8 @@
-import { Combobox, Dialog } from '@headlessui/react';
+import { Dialog, Listbox } from '@headlessui/react';
 import clsx from 'clsx';
 import { makeDomainFunction } from 'domain-functions';
 import { useHead } from 'hoofd';
 import { useEffect, useState } from 'react';
-import { Controller } from 'react-hook-form';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router-dom';
 import {
 	Form as FrameworkForm,
@@ -199,16 +198,7 @@ const ActivityPage = () => {
 
 	const loaderData = useLoaderData() as LoaderData;
 
-	const [selectedPriority, setSelectedPriority] = useState(priorities[0]);
 	const [editActivityTitle, setEditActivityTitle] = useState(false);
-
-	const [query, setQuery] = useState('');
-	const filteredPriority =
-		query === ''
-			? priorities
-			: priorities.filter(priority => {
-					return priority.name.toLowerCase().includes(query.toLowerCase());
-			  });
 
 	const [selectedTodo, setSelectedTodo] = useState<
 		typeof loaderData['data']['todo_items'][number] | null
@@ -272,6 +262,27 @@ const ActivityPage = () => {
 		setIsEditOpen(true);
 	};
 
+	const [selectedSort, setSelectedSort] = useState<
+		'latest' | 'oldest' | 'az' | 'za' | 'unfinished'
+	>('latest');
+
+	const sortedTodos = loaderData.data.todo_items;
+	sortedTodos.sort((a, b) => {
+		if (selectedSort === 'oldest') {
+			return a.id - b.id;
+		}
+
+		if (selectedSort === 'az') {
+			return a.title.localeCompare(b.title);
+		}
+
+		if (selectedSort === 'za') {
+			return b.title.localeCompare(a.title);
+		}
+
+		return b.id - a.id;
+	});
+
 	return (
 		<>
 			<div className="mt-[2.6875rem] flex justify-between">
@@ -305,12 +316,36 @@ const ActivityPage = () => {
 
 				<div className="flex items-center gap-x-[1.125rem]">
 					{loaderData.data.todo_items.length ? (
-						<button
-							type="button"
-							className="flex h-[3.375rem] w-[3.375rem] items-center justify-center rounded-[2.8125rem] border border-[#E5E5E5] text-[#888888]"
-						>
-							<SvgIcon name="sort" width={24} height={24} color="#888888" />
-						</button>
+						<Listbox value={selectedSort} onChange={setSelectedSort}>
+							<Listbox.Button className="flex h-[3.375rem] w-[3.375rem] items-center justify-center rounded-[2.8125rem] border border-[#E5E5E5] text-[#888888]">
+								<SvgIcon name="sort" width={24} height={24} color="#888888" />
+							</Listbox.Button>
+
+							<Listbox.Options
+								className="w-[14.6875rem] bg-white text-[#4A4A4A]"
+								data-cy="sort-parent"
+							>
+								<Listbox.Option value="latest" className="py-[.875rem]" data-cy="sort-latest">
+									Terbaru
+								</Listbox.Option>
+								<Listbox.Option value="oldest" className="py-[.875rem]" data-cy="sort-oldest">
+									Terlama
+								</Listbox.Option>
+								<Listbox.Option value="az" className="py-[.875rem]" data-cy="sort-az">
+									A-Z
+								</Listbox.Option>
+								<Listbox.Option value="za" className="py-[.875rem]" data-cy="sort-za">
+									Z-A
+								</Listbox.Option>
+								<Listbox.Option
+									value="unfinished"
+									className="py-[.875rem]"
+									data-cy="sort-unfinished"
+								>
+									Belum Selesai
+								</Listbox.Option>
+							</Listbox.Options>
+						</Listbox>
 					) : null}
 
 					<button
@@ -328,11 +363,11 @@ const ActivityPage = () => {
 
 			{loaderData.data.todo_items.length ? (
 				<article className="my-12 flex flex-col gap-y-[.625rem]">
-					{loaderData.data.todo_items.map((todo, index) => (
+					{sortedTodos.map(todo => (
 						<article
 							key={todo.id}
 							className="flex items-center rounded-xl bg-white pt-[1.625rem] pr-6 pb-[1.6875rem] pl-7 shadow-[0_6px_10px_rgba(0,0,0,.1)]"
-							data-cy={`todo-item-${index}`}
+							data-cy="todo-item"
 						>
 							<input
 								type="checkbox"
@@ -429,10 +464,10 @@ const ActivityPage = () => {
 							values={{
 								activity_group_id: loaderData.data.id,
 								_action: 'create',
-								priority: selectedPriority.name
+								priority: 'very-high'
 							}}
 						>
-							{({ Field, Button, control, formState }) => (
+							{({ Field, Button, formState }) => (
 								<>
 									<Field name="activity_group_id" />
 									<Field name="_action" />
@@ -460,100 +495,14 @@ const ActivityPage = () => {
 										</Field>
 
 										<Field name="priority" label="PRIORITY">
-											{({ Error, Label }) => (
+											{({ Error, Label, Select }) => (
 												<div className="mt-[1.625rem] flex flex-col gap-y-[.5625rem]">
 													<Label
 														className="text-xs font-semibold leading-[1.125rem]"
 														data-cy="modal-add-priority-title"
 													/>
 
-													<Controller
-														control={control}
-														name="priority"
-														defaultValue="very-high"
-														render={({ field: { onChange, ...rest } }) => (
-															<>
-																<Combobox
-																	as="div"
-																	className="relative"
-																	defaultValue="very-high"
-																	onChange={(priority: Priority) => {
-																		onChange(priority);
-
-																		const relatedPriority = priorities.find(
-																			p => p.name === priority
-																		);
-
-																		if (relatedPriority) {
-																			setSelectedPriority(relatedPriority);
-																		}
-																	}}
-																	{...rest}
-																>
-																	{({ open }) => (
-																		<>
-																			<div
-																				className={clsx(
-																					'flex h-[3.25rem] max-w-[12.8125rem] items-center rounded-md border border-[#E5E5E5] px-[1.0625rem] focus-within:border-[#16ABF8] focus:outline-none',
-																					{ 'bg-[#F4F4F4]': open }
-																				)}
-																			>
-																				<Color
-																					color={selectedPriority.color}
-																					className="h-[.875rem] w-[.875rem] shrink-0"
-																				/>
-
-																				<Combobox.Input
-																					onChange={e => setQuery(e.target.value)}
-																					className="h-full w-full bg-inherit pl-[1.125rem] pr-2 focus:outline-none"
-																					placeholder="Pilih priority"
-																					displayValue={() => selectedPriority.display}
-																				/>
-
-																				<Combobox.Button>
-																					{open ? (
-																						<SvgIcon name="chevron-up" width={24} height={24} />
-																					) : (
-																						<SvgIcon name="chevron-down" width={24} height={24} />
-																					)}
-																				</Combobox.Button>
-																			</div>
-
-																			<Combobox.Options className="absolute w-full max-w-[12.8125rem] divide-y divide-[#E5E5E5] rounded-md border border-[#E5E5E5] bg-white">
-																				{filteredPriority.map(priority => (
-																					<Combobox.Option
-																						key={priority.name}
-																						value={priority.name}
-																						className="flex items-center py-[.875rem] pl-[1.0625rem] pr-[1.4375rem] text-[#4A4A4A] hover:cursor-pointer"
-																					>
-																						{({ selected }) => (
-																							<>
-																								<Color
-																									color={priority.color}
-																									className="mr-[1.1875rem] h-[.875rem] w-[.875rem] shrink-0"
-																								/>
-
-																								<span className="flex-1">{priority.display}</span>
-
-																								{selected ? (
-																									<SvgIcon
-																										name="check"
-																										width={18}
-																										height={18}
-																										color="#4A4A4A"
-																									/>
-																								) : null}
-																							</>
-																						)}
-																					</Combobox.Option>
-																				))}
-																			</Combobox.Options>
-																		</>
-																	)}
-																</Combobox>
-															</>
-														)}
-													/>
+													<Select data-cy="modal-add-priority-dropdown" />
 
 													<Error />
 												</div>
