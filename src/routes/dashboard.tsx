@@ -15,7 +15,7 @@ import {
 import createActivity from '../actions/createActivity';
 import deleteActivity from '../actions/deleteActivity';
 import SvgIcon from '../components/SvgIcon';
-import emptyStateImg from '../images/dashboard-empty-state.png';
+import emptyStateImg from '../images/activity-empty-state.png';
 import type { JsonResponse } from '../loaders/getActivities';
 import getActivities from '../loaders/getActivities';
 
@@ -175,13 +175,14 @@ const DashboardPage = () => {
 					))}
 				</article>
 			) : (
-				<Form method="post" className="my-[3.6875rem]">
+				<Form method="post" className="my-[3.6875rem] flex justify-center">
 					<button
 						type="submit"
 						name="_action"
 						value="create"
 						disabled={isCreating}
 						data-cy="activity-empty-state"
+						className="max-h-[30.625rem] max-w-[47.9375rem]"
 					>
 						<img src={emptyStateImg} alt="Add activity illustration" />
 					</button>

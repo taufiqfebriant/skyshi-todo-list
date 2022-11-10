@@ -20,7 +20,9 @@ import { z } from 'zod';
 import checkTodo from '../actions/checkTodo';
 import createTodo from '../actions/createTodo';
 import deleteTodo from '../actions/deleteTodo';
+import updateTodo from '../actions/updateTodo';
 import SvgIcon from '../components/SvgIcon';
+import emptyStateImg from '../images/todo-empty-state.png';
 import type { Activity } from '../loaders/getActivity';
 import getActivity, { Priority } from '../loaders/getActivity';
 
@@ -40,78 +42,6 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
 
 	const data = await getActivity({ id: +params.id });
 	return json({ data });
-};
-
-const formAction = createFormAction({ json, redirect });
-
-const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, useActionData });
-
-const ACTIONS = ['create', 'delete', 'check', 'update'] as const;
-
-const createSchema = z.object({
-	activity_group_id: z.string().min(1),
-	priority: z.nativeEnum(Priority).default(Priority.VeryHigh),
-	title: z.string().min(1),
-	_action: z.enum(ACTIONS)
-});
-
-const createMutation = makeDomainFunction(createSchema)(async values => {
-	return createTodo(values);
-});
-
-export type CreateSchema = z.infer<typeof createSchema>;
-
-const deleteSchema = z.object({
-	id: z.number().min(1),
-	_action: z.enum(ACTIONS)
-});
-
-const deleteMutation = makeDomainFunction(deleteSchema)(async values => {
-	return deleteTodo({ id: values.id });
-});
-
-type DeleteSchema = z.infer<typeof deleteSchema>;
-
-const checkSchema = z.object({
-	id: z.number().min(1),
-	priority: z.nativeEnum(Priority),
-	is_active: z.number().int().gte(0).lte(1),
-	_action: z.enum(ACTIONS)
-});
-
-const checkMutation = makeDomainFunction(checkSchema)(async values => {
-	return checkTodo(values);
-});
-
-export type CheckSchema = z.infer<typeof checkSchema>;
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await request.clone().formData();
-	const data = Object.fromEntries(formData) as CreateSchema | DeleteSchema;
-
-	if (data._action === 'create') {
-		return formAction({
-			request,
-			schema: createSchema,
-			mutation: createMutation
-		});
-	}
-
-	if (data._action === 'delete') {
-		return formAction({
-			request,
-			schema: deleteSchema,
-			mutation: deleteMutation
-		});
-	}
-
-	if (data._action === 'check') {
-		return formAction({
-			request,
-			schema: checkSchema,
-			mutation: checkMutation
-		});
-	}
 };
 
 type PriorityOption = {
@@ -147,6 +77,101 @@ const priorities: PriorityOption[] = [
 		display: 'Very Low'
 	}
 ];
+
+const formAction = createFormAction({ json, redirect });
+
+const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, useActionData });
+
+const ACTIONS = ['create', 'delete', 'check', 'update'] as const;
+const PRIORITY_NAMES = ['very-high', 'high', 'normal', 'low', 'very-low'] as const;
+
+const createSchema = z.object({
+	activity_group_id: z.string().min(1),
+	priority: z.enum(PRIORITY_NAMES),
+	title: z.string().min(1),
+	_action: z.enum(ACTIONS)
+});
+
+const createMutation = makeDomainFunction(createSchema)(async values => {
+	return createTodo(values);
+});
+
+export type CreateSchema = z.infer<typeof createSchema>;
+
+const deleteSchema = z.object({
+	id: z.number().min(1),
+	_action: z.enum(ACTIONS)
+});
+
+const deleteMutation = makeDomainFunction(deleteSchema)(async values => {
+	return deleteTodo({ id: values.id });
+});
+
+type DeleteSchema = z.infer<typeof deleteSchema>;
+
+const checkSchema = z.object({
+	id: z.number().min(1),
+	priority: z.enum(PRIORITY_NAMES),
+	is_active: z.number().int().gte(0).lte(1),
+	_action: z.enum(ACTIONS)
+});
+
+const checkMutation = makeDomainFunction(checkSchema)(async values => {
+	return checkTodo(values);
+});
+
+export type CheckSchema = z.infer<typeof checkSchema>;
+
+const updateSchema = z.object({
+	id: z.number().min(1),
+	priority: z.enum(PRIORITY_NAMES),
+	title: z.string().min(1),
+	is_active: z.number().int().gte(0).lte(1),
+	_action: z.enum(ACTIONS)
+});
+
+const updateMutation = makeDomainFunction(updateSchema)(async values => {
+	return updateTodo(values);
+});
+
+export type UpdateSchema = z.infer<typeof updateSchema>;
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	const data = Object.fromEntries(formData) as CreateSchema | DeleteSchema;
+
+	if (data._action === 'create') {
+		return formAction({
+			request,
+			schema: createSchema,
+			mutation: createMutation
+		});
+	}
+
+	if (data._action === 'delete') {
+		return formAction({
+			request,
+			schema: deleteSchema,
+			mutation: deleteMutation
+		});
+	}
+
+	if (data._action === 'check') {
+		return formAction({
+			request,
+			schema: checkSchema,
+			mutation: checkMutation
+		});
+	}
+
+	if (data._action === 'update') {
+		return formAction({
+			request,
+			schema: updateSchema,
+			mutation: updateMutation
+		});
+	}
+};
 
 interface ColorProps extends React.ComponentPropsWithoutRef<'div'> {
 	color: string;
@@ -220,6 +245,7 @@ const ActivityPage = () => {
 
 		if (actionData && close) {
 			setIsOpen(false);
+			setIsEditOpen(false);
 		}
 
 		return () => {
@@ -239,11 +265,18 @@ const ActivityPage = () => {
 		setIsConfirmDeletionOpen(false);
 	};
 
+	const [isEditOpen, setIsEditOpen] = useState(false);
+
+	const handlePencilTodoClick = (todo: typeof loaderData['data']['todo_items'][number]) => {
+		setSelectedTodo(todo);
+		setIsEditOpen(true);
+	};
+
 	return (
 		<>
 			<div className="mt-[2.6875rem] flex justify-between">
 				<div className="flex items-center justify-between gap-x-[1.1875rem]">
-					<Link to="/">
+					<Link to="/" data-cy="todo-back-button">
 						<SvgIcon name="chevron-left" width={32} height={32} color="#111111" />
 					</Link>
 
@@ -253,20 +286,21 @@ const ActivityPage = () => {
 							name="activity_title"
 							defaultValue={loaderData.data.title}
 							className="border-b border-[#111111] bg-transparent text-4xl font-bold leading-[3.375rem] focus:outline-none"
-							onBlur={() => console.log('blurred')}
+							data-cy="todo-title"
 						/>
 					) : (
 						<h1
 							className="text-4xl font-bold leading-[3.375rem]"
 							onClick={() => setEditActivityTitle(true)}
+							data-cy="todo-title"
 						>
 							{loaderData.data.title}
 						</h1>
 					)}
 
-					<div className="pr-10 text-[#A4A4A4]">
+					<button type="button" className="pr-10 text-[#A4A4A4]" data-cy="todo-title-edit-button">
 						<SvgIcon name="pencil" width={24} height={24} color="#A4A4A4" />
-					</div>
+					</button>
 				</div>
 
 				<div className="flex items-center gap-x-[1.125rem]">
@@ -283,6 +317,7 @@ const ActivityPage = () => {
 						type="button"
 						className="flex h-[3.375rem] items-center gap-x-[.375rem] rounded-[2.8125rem] bg-[#16ABF8] pl-[1.375rem] pr-[1.8125rem] text-white"
 						onClick={() => setIsOpen(true)}
+						data-cy="todo-add-button"
 					>
 						<SvgIcon name="plus" width={24} height={24} />
 
@@ -293,16 +328,18 @@ const ActivityPage = () => {
 
 			{loaderData.data.todo_items.length ? (
 				<article className="my-12 flex flex-col gap-y-[.625rem]">
-					{loaderData.data.todo_items.map(todo => (
+					{loaderData.data.todo_items.map((todo, index) => (
 						<article
 							key={todo.id}
 							className="flex items-center rounded-xl bg-white pt-[1.625rem] pr-6 pb-[1.6875rem] pl-7 shadow-[0_6px_10px_rgba(0,0,0,.1)]"
+							data-cy={`todo-item-${index}`}
 						>
 							<input
 								type="checkbox"
 								className="h-5 w-5"
 								checked={!todo.is_active}
 								onChange={() => handleTodoCheck(todo)}
+								data-cy="todo-item-checkbox"
 							/>
 
 							<Color
@@ -310,18 +347,25 @@ const ActivityPage = () => {
 									priorities.find(priority => priority.name === todo.priority)?.color ?? '#ffffff'
 								}
 								className="ml-[1.375rem] h-[.5625rem] w-[.5625rem]"
+								data-cy="todo-item-priority-indicator"
 							/>
 
 							<h2
 								className={clsx('ml-4 text-lg font-medium leading-[1.6875rem]', {
 									'text-[#888888] line-through': !todo.is_active
 								})}
+								data-cy="todo-item-title"
 							>
 								{todo.title}
 							</h2>
 
 							<div className="flex flex-1 items-center">
-								<button type="button" className="ml-4 w-fit text-[#C4C4C4]">
+								<button
+									type="button"
+									className="ml-4 w-fit text-[#C4C4C4]"
+									data-cy="todo-item-edit-button"
+									onClick={() => handlePencilTodoClick(todo)}
+								>
 									<SvgIcon name="pencil" width={20} height={20} color="#C4C4C4" />
 								</button>
 							</div>
@@ -330,13 +374,25 @@ const ActivityPage = () => {
 								type="button"
 								className="text-[#888888]"
 								onClick={() => handleTrashClick(todo)}
+								data-cy="todo-item-delete-button"
 							>
 								<SvgIcon name="trash" width={24} height={24} color="#888888" />
 							</button>
 						</article>
 					))}
 				</article>
-			) : null}
+			) : (
+				<div className="my-[6.0625rem] flex justify-center">
+					<button
+						type="button"
+						onClick={() => setIsOpen(true)}
+						className="max-h-[25.8125rem] max-w-[33.8125rem]"
+						data-cy="todo-empty-state"
+					>
+						<img src={emptyStateImg} alt="Add todo illustration" />
+					</button>
+				</div>
+			)}
 
 			{/** TODO: Tambah animasi */}
 			<Dialog open={isOpen} onClose={() => setIsOpen(false)} className="relative z-50">
@@ -350,7 +406,7 @@ const ActivityPage = () => {
 								Tambah List Item
 							</Dialog.Title>
 
-							<button type="button" className="text-[#A4A4A4]">
+							<button type="button" className="text-[#A4A4A4]" onClick={() => setIsOpen(false)}>
 								<SvgIcon name="close" width={24} height={24} color="#A4A4A4" />
 							</button>
 						</div>
@@ -359,7 +415,11 @@ const ActivityPage = () => {
 							schema={createSchema}
 							method="post"
 							hiddenFields={['activity_group_id', '_action']}
-							values={{ activity_group_id: loaderData.data.id, _action: 'create' }}
+							values={{
+								activity_group_id: loaderData.data.id,
+								_action: 'create',
+								priority: selectedPriority.name
+							}}
 						>
 							{({ Field, Button, control, formState }) => (
 								<>
@@ -392,13 +452,13 @@ const ActivityPage = () => {
 													<Controller
 														control={control}
 														name="priority"
-														defaultValue={selectedPriority.name}
-														render={({ field: { onChange, value, ...rest } }) => (
+														defaultValue="very-high"
+														render={({ field: { onChange, ...rest } }) => (
 															<>
 																<Combobox
 																	as="div"
 																	className="relative"
-																	defaultValue={selectedPriority.name}
+																	defaultValue="very-high"
 																	onChange={(priority: Priority) => {
 																		onChange(priority);
 
@@ -476,6 +536,87 @@ const ActivityPage = () => {
 															</>
 														)}
 													/>
+
+													<Error />
+												</div>
+											)}
+										</Field>
+									</div>
+
+									<div className="flex justify-end border-t border-[#E5E5E5] pr-10 pt-[.9375rem] pb-[1.1875rem]">
+										<Button
+											disabled={!formState.isValid}
+											className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
+										>
+											Simpan
+										</Button>
+									</div>
+								</>
+							)}
+						</Form>
+					</Dialog.Panel>
+				</div>
+			</Dialog>
+
+			{/** TODO: Tambah animasi */}
+			<Dialog open={isEditOpen} onClose={() => setIsEditOpen(false)} className="relative z-50">
+				{/* The backdrop, rendered as a fixed sibling to the panel container */}
+				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+
+				<div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4">
+					<Dialog.Panel className="w-[51.875rem] rounded-xl bg-white shadow-[0_4px_10px_rgba(0,0,0,.1)]">
+						<div className="flex items-center justify-between border-b border-[#E5E5E5] pt-6 pr-[2.5625rem] pb-[1.1875rem] pl-[1.875rem]">
+							<Dialog.Title className="text-lg font-semibold leading-[1.6875rem]">
+								Edit Item
+							</Dialog.Title>
+
+							<button type="button" className="text-[#A4A4A4]" onClick={() => setIsEditOpen(false)}>
+								<SvgIcon name="close" width={24} height={24} color="#A4A4A4" />
+							</button>
+						</div>
+
+						<Form
+							schema={updateSchema}
+							method="post"
+							hiddenFields={['id', '_action', 'is_active']}
+							values={{
+								id: selectedTodo?.id,
+								_action: 'update',
+								title: selectedTodo?.title,
+								priority: selectedTodo?.priority,
+								is_active: selectedTodo?.is_active
+							}}
+						>
+							{({ Field, Button, formState }) => (
+								<>
+									<Field name="id" />
+									<Field name="_action" />
+									<Field name="is_active" />
+
+									<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
+										<Field name="title">
+											{({ Label, SmartInput, Error }) => (
+												<div className="flex flex-col gap-y-[.5625rem]">
+													<Label className="text-xs font-semibold leading-[1.125rem]">
+														NAMA LIST ITEM
+													</Label>
+
+													<SmartInput
+														className="h-[3.25rem] rounded-md border border-[#E5E5E5] px-[1.125rem] focus:border-[#16ABF8] focus:outline-none"
+														placeholder="Tambahkan nama list item"
+													/>
+
+													<Error />
+												</div>
+											)}
+										</Field>
+
+										<Field name="priority" label="PRIORITY">
+											{({ Error, Label, Select }) => (
+												<div className="mt-[1.625rem] flex flex-col gap-y-[.5625rem]">
+													<Label className="text-xs font-semibold leading-[1.125rem]" />
+
+													<Select />
 
 													<Error />
 												</div>
