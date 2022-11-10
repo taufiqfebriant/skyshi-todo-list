@@ -280,6 +280,10 @@ const ActivityPage = () => {
 			return b.title.localeCompare(a.title);
 		}
 
+		if (selectedSort === 'unfinished') {
+			return b.is_active - a.is_active;
+		}
+
 		return b.id - a.id;
 	});
 
