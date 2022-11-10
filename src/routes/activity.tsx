@@ -9,13 +9,12 @@ import {
 	Form as FrameworkForm,
 	json,
 	Link,
-	redirect,
 	useActionData,
 	useLoaderData,
 	useNavigation,
 	useSubmit
 } from 'react-router-dom';
-import { createForm, createFormAction, performMutation } from 'remix-forms';
+import { createForm, performMutation } from 'remix-forms';
 import { z } from 'zod';
 import checkTodo from '../actions/checkTodo';
 import createTodo from '../actions/createTodo';
@@ -77,8 +76,6 @@ const priorities: PriorityOption[] = [
 		display: 'Very Low'
 	}
 ];
-
-const formAction = createFormAction({ json, redirect });
 
 const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, useActionData });
 
@@ -567,8 +564,20 @@ const ActivityPage = () => {
 														control={control}
 														defaultValue="very-high"
 														name="priority"
-														render={({ field }) => (
-															<Listbox as="div" defaultValue={selectedPriority.name} {...field}>
+														render={({ field: { onChange, ...rest } }) => (
+															<Listbox
+																as="div"
+																defaultValue={selectedPriority.name}
+																onChange={priority => {
+																	onChange(priority);
+
+																	const relatedPriority = priorities.find(p => p.name === priority);
+																	if (relatedPriority) {
+																		setSelectedPriority(relatedPriority);
+																	}
+																}}
+																{...rest}
+															>
 																<Listbox.Button data-cy="modal-add-priority-dropdown">
 																	{selectedPriority.display}
 																</Listbox.Button>
