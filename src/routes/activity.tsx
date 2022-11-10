@@ -617,12 +617,18 @@ const ActivityPage = () => {
 				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
 
 				<div className="fixed inset-0 flex items-center justify-center p-4">
-					<Dialog.Panel className="h-[22.1875rem] w-[30.625rem] rounded-xl bg-white pt-10 pr-[3.875rem] pb-[2.6875rem] pl-[3.9375rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]">
-						<div className="flex justify-center text-[#ED4C5C]">
+					<Dialog.Panel
+						className="h-[22.1875rem] w-[30.625rem] rounded-xl bg-white pt-10 pr-[3.875rem] pb-[2.6875rem] pl-[3.9375rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]"
+						data-cy="modal-delete"
+					>
+						<div className="flex justify-center text-[#ED4C5C]" data-cy="modal-delete-icon">
 							<SvgIcon name="warning" width={84} height={84} color="#ED4C5C" />
 						</div>
 
-						<p className="mt-[2.125rem] text-center text-lg font-medium leading-[1.6875rem]">
+						<p
+							className="mt-[2.125rem] text-center text-lg font-medium leading-[1.6875rem]"
+							data-cy="modal-delete-title"
+						>
 							Apakah anda yakin menghapus List Item{' '}
 							<span className="font-bold">&quot;{selectedTodo?.title}&quot;</span>?
 						</p>
@@ -631,6 +637,7 @@ const ActivityPage = () => {
 							<button
 								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#F4F4F4] text-lg font-semibold leading-[1.6875rem] text-[#4A4A4A]"
 								onClick={handleConfirmDeleteClose}
+								data-cy="modal-delete-cancel-button"
 							>
 								Batal
 							</button>
@@ -640,6 +647,7 @@ const ActivityPage = () => {
 								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#ED4C5C] text-lg font-semibold leading-[1.6875rem] text-white"
 								type="button"
 								onClick={handleDelete}
+								data-cy="modal-delete-confirm-button"
 							>
 								Hapus
 							</button>
