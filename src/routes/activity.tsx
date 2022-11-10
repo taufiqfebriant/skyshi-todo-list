@@ -400,13 +400,24 @@ const ActivityPage = () => {
 				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
 
 				<div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4">
-					<Dialog.Panel className="w-[51.875rem] rounded-xl bg-white shadow-[0_4px_10px_rgba(0,0,0,.1)]">
+					<Dialog.Panel
+						className="w-[51.875rem] rounded-xl bg-white shadow-[0_4px_10px_rgba(0,0,0,.1)]"
+						data-cy="modal-add"
+					>
 						<div className="flex items-center justify-between border-b border-[#E5E5E5] pt-6 pr-[2.5625rem] pb-[1.1875rem] pl-[1.875rem]">
-							<Dialog.Title className="text-lg font-semibold leading-[1.6875rem]">
+							<Dialog.Title
+								className="text-lg font-semibold leading-[1.6875rem]"
+								data-cy="modal-add-title"
+							>
 								Tambah List Item
 							</Dialog.Title>
 
-							<button type="button" className="text-[#A4A4A4]" onClick={() => setIsOpen(false)}>
+							<button
+								type="button"
+								className="text-[#A4A4A4]"
+								onClick={() => setIsOpen(false)}
+								data-cy="modal-add-close-button"
+							>
 								<SvgIcon name="close" width={24} height={24} color="#A4A4A4" />
 							</button>
 						</div>
@@ -430,13 +441,17 @@ const ActivityPage = () => {
 										<Field name="title">
 											{({ Label, SmartInput, Error }) => (
 												<div className="flex flex-col gap-y-[.5625rem]">
-													<Label className="text-xs font-semibold leading-[1.125rem]">
+													<Label
+														className="text-xs font-semibold leading-[1.125rem]"
+														data-cy="modal-add-name-title"
+													>
 														NAMA LIST ITEM
 													</Label>
 
 													<SmartInput
 														className="h-[3.25rem] rounded-md border border-[#E5E5E5] px-[1.125rem] focus:border-[#16ABF8] focus:outline-none"
 														placeholder="Tambahkan nama list item"
+														data-cy="modal-add-name-input"
 													/>
 
 													<Error />
@@ -447,7 +462,10 @@ const ActivityPage = () => {
 										<Field name="priority" label="PRIORITY">
 											{({ Error, Label }) => (
 												<div className="mt-[1.625rem] flex flex-col gap-y-[.5625rem]">
-													<Label className="text-xs font-semibold leading-[1.125rem]" />
+													<Label
+														className="text-xs font-semibold leading-[1.125rem]"
+														data-cy="modal-add-priority-title"
+													/>
 
 													<Controller
 														control={control}
@@ -547,6 +565,7 @@ const ActivityPage = () => {
 										<Button
 											disabled={!formState.isValid}
 											className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
+											data-cy="modal-add-save-button"
 										>
 											Simpan
 										</Button>

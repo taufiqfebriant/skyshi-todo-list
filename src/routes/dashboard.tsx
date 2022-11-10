@@ -146,11 +146,11 @@ const DashboardPage = () => {
 			{/** TODO: Tambah layout ketika activity kosong */}
 			{loaderData.data.length ? (
 				<article className="my-[3.0625rem] grid grid-cols-4 gap-x-5 gap-y-[1.625rem]">
-					{loaderData.data.map((activity, index) => (
+					{loaderData.data.map(activity => (
 						<article
 							key={activity.id}
 							className="flex h-[14.625rem] flex-col justify-between rounded-xl bg-white p-[1.375rem_1.625rem_1.5625rem_1.6875rem] shadow-[0_6px_10px_rgba(0,0,0,.1)]"
-							data-cy={`activity-item-${index}`}
+							data-cy="activity-item"
 						>
 							<Link to={`/detail/${activity.id}`} className="flex-1">
 								<h2 className="text-lg font-bold" data-cy="activity-item-title">
