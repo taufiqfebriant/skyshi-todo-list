@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { makeDomainFunction } from 'domain-functions';
 import { useHead } from 'hoofd';
 import { useEffect, useRef, useState } from 'react';
+import { Controller } from 'react-hook-form';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router-dom';
 import {
 	Form as FrameworkForm,
@@ -338,6 +339,8 @@ const ActivityPage = () => {
 		};
 	}, [actionData?._action, actionData?.success]);
 
+	const [selectedPriority, setSelectedPriority] = useState(priorities[0]);
+
 	return (
 		<>
 			<div className="mt-[2.6875rem] flex justify-between">
@@ -525,7 +528,7 @@ const ActivityPage = () => {
 								priority: 'very-high'
 							}}
 						>
-							{({ Field, Button, formState }) => (
+							{({ Field, Button, formState, control }) => (
 								<>
 									<Field name="activity_group_id" />
 									<Field name="_action" />
@@ -553,14 +556,33 @@ const ActivityPage = () => {
 										</Field>
 
 										<Field name="priority" label="PRIORITY">
-											{({ Error, Label, Select }) => (
+											{({ Error, Label }) => (
 												<div className="mt-[1.625rem] flex flex-col gap-y-[.5625rem]">
 													<Label
 														className="text-xs font-semibold leading-[1.125rem]"
 														data-cy="modal-add-priority-title"
 													/>
 
-													<Select data-cy="modal-add-priority-dropdown" />
+													<Controller
+														control={control}
+														defaultValue="very-high"
+														name="priority"
+														render={({ field }) => (
+															<Listbox as="div" defaultValue={selectedPriority.name} {...field}>
+																<Listbox.Button data-cy="modal-add-priority-dropdown">
+																	{selectedPriority.display}
+																</Listbox.Button>
+
+																<Listbox.Options>
+																	{priorities.map(priority => (
+																		<Listbox.Option key={priority.name} value={priority.name}>
+																			{priority.display}
+																		</Listbox.Option>
+																	))}
+																</Listbox.Options>
+															</Listbox>
+														)}
+													/>
 
 													<Error />
 												</div>
