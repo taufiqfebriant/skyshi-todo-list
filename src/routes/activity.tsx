@@ -2,7 +2,7 @@ import { Dialog, Listbox } from '@headlessui/react';
 import clsx from 'clsx';
 import { makeDomainFunction } from 'domain-functions';
 import { useHead } from 'hoofd';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router-dom';
 import {
 	Form as FrameworkForm,
@@ -14,7 +14,7 @@ import {
 	useNavigation,
 	useSubmit
 } from 'react-router-dom';
-import { createForm, createFormAction } from 'remix-forms';
+import { createForm, createFormAction, performMutation } from 'remix-forms';
 import { z } from 'zod';
 import checkTodo from '../actions/checkTodo';
 import createTodo from '../actions/createTodo';
@@ -139,37 +139,62 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const data = Object.fromEntries(formData) as CreateSchema | DeleteSchema;
 
+	let success = false;
+
 	if (data._action === 'create') {
-		return formAction({
+		const result = await performMutation({
 			request,
 			schema: createSchema,
 			mutation: createMutation
 		});
+
+		if (result.success) {
+			success = true;
+		}
 	}
 
 	if (data._action === 'delete') {
-		return formAction({
+		const result = await performMutation({
 			request,
 			schema: deleteSchema,
 			mutation: deleteMutation
 		});
+
+		if (result.success) {
+			success = true;
+		}
 	}
 
 	if (data._action === 'check') {
-		return formAction({
+		const result = await performMutation({
 			request,
 			schema: checkSchema,
 			mutation: checkMutation
 		});
+
+		if (result.success) {
+			success = true;
+		}
 	}
 
 	if (data._action === 'update') {
-		return formAction({
+		const result = await performMutation({
 			request,
 			schema: updateSchema,
 			mutation: updateMutation
 		});
+
+		if (result.success) {
+			success = true;
+		}
 	}
+
+	return json({ _action: data._action, success });
+};
+
+type ActionData = {
+	_action: z.infer<typeof createSchema>['_action'];
+	success: boolean;
 };
 
 interface ColorProps extends React.ComponentPropsWithoutRef<'div'> {
@@ -229,19 +254,30 @@ const ActivityPage = () => {
 		}
 	};
 
-	const actionData = useActionData();
+	const actionData = useActionData() as ActionData | undefined;
 	useEffect(() => {
 		let close = true;
 
-		if (actionData && close) {
+		if (actionData?._action === 'create' && actionData.success && close) {
 			setIsOpen(false);
+		}
+
+		return () => {
+			close = false;
+		};
+	}, [actionData?._action, actionData?.success]);
+
+	useEffect(() => {
+		let close = true;
+
+		if (actionData?._action === 'update' && actionData.success && close) {
 			setIsEditOpen(false);
 		}
 
 		return () => {
 			close = false;
 		};
-	}, [actionData]);
+	}, [actionData?._action, actionData?.success]);
 
 	const handleTodoCheck = (todo: typeof loaderData['data']['todo_items'][number]) => {
 		const formData = new FormData();
@@ -286,6 +322,21 @@ const ActivityPage = () => {
 
 		return b.id - a.id;
 	});
+
+	const [isInfoOpen, setIsInfoOpen] = useState(false);
+	const refInfoDiv = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		let open = true;
+
+		if (actionData?._action === 'delete' && actionData.success && open) {
+			setIsInfoOpen(true);
+		}
+
+		return () => {
+			open = false;
+		};
+	}, [actionData?._action, actionData?.success]);
 
 	return (
 		<>
@@ -659,6 +710,36 @@ const ActivityPage = () => {
 								Hapus
 							</button>
 						</div>
+					</Dialog.Panel>
+				</div>
+			</Dialog>
+
+			{/** TODO: Tambah animasi */}
+			<Dialog
+				open={isInfoOpen}
+				onClose={() => setIsInfoOpen(false)}
+				className="relative z-50"
+				initialFocus={refInfoDiv}
+			>
+				{/* The backdrop, rendered as a fixed sibling to the panel container */}
+				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+
+				<div className="fixed inset-0 flex items-center justify-center p-4">
+					<Dialog.Panel
+						className="flex h-[3.625rem] w-[30.625rem] items-center gap-x-[.625rem] rounded-xl bg-white py-[1.0625rem] px-[1.6875rem] shadow-[0_4px_10px_rgba(0,0,0,.1)]"
+						ref={refInfoDiv}
+						data-cy="modal-information"
+					>
+						<div className="text-[#00A790]" data-cy="modal-information-icon">
+							<SvgIcon name="info" width={24} height={24} color="#00A790" />
+						</div>
+
+						<p
+							className="text-sm font-medium leading-[1.3125rem]"
+							data-cy="modal-information-title"
+						>
+							Todo berhasil dihapus
+						</p>
 					</Dialog.Panel>
 				</div>
 			</Dialog>
