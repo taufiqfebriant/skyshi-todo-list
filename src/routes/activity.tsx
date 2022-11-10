@@ -594,7 +594,11 @@ const ActivityPage = () => {
 
 																<Listbox.Options>
 																	{priorities.map(priority => (
-																		<Listbox.Option key={priority.name} value={priority.name}>
+																		<Listbox.Option
+																			key={priority.name}
+																			value={priority.name}
+																			data-cy="modal-add-priority-item"
+																		>
 																			{priority.display}
 																		</Listbox.Option>
 																	))}
