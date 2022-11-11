@@ -19,6 +19,7 @@ import { z } from 'zod';
 import checkTodo from '../actions/checkTodo';
 import createTodo from '../actions/createTodo';
 import deleteTodo from '../actions/deleteTodo';
+import updateActivityTitle from '../actions/updateActivityTitle';
 import updateTodo from '../actions/updateTodo';
 import SvgIcon from '../components/SvgIcon';
 import emptyStateImg from '../images/todo-empty-state.png';
@@ -79,7 +80,7 @@ const priorities: PriorityOption[] = [
 
 const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, useActionData });
 
-const ACTIONS = ['create', 'delete', 'check', 'update'] as const;
+const ACTIONS = ['create', 'delete', 'check', 'update', 'update-activity-title'] as const;
 const PRIORITY_NAMES = ['very-high', 'high', 'normal', 'low', 'very-low'] as const;
 
 const createSchema = z.object({
@@ -133,6 +134,18 @@ const updateMutation = makeDomainFunction(updateSchema)(async values => {
 
 export type UpdateSchema = z.infer<typeof updateSchema>;
 
+const updateActivityTitleSchema = z.object({
+	id: z.number().min(1),
+	title: z.string().min(1),
+	_action: z.enum(ACTIONS)
+});
+
+const updateActivityTitleMutation = makeDomainFunction(updateActivityTitleSchema)(async values => {
+	return updateActivityTitle(values);
+});
+
+export type UpdateActivityTitleSchema = z.infer<typeof updateActivityTitleSchema>;
+
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const data = Object.fromEntries(formData) as CreateSchema | DeleteSchema;
@@ -180,6 +193,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			request,
 			schema: updateSchema,
 			mutation: updateMutation
+		});
+
+		if (result.success) {
+			success = true;
+		}
+	}
+
+	if (data._action === 'update-activity-title') {
+		const result = await performMutation({
+			request,
+			schema: updateActivityTitleSchema,
+			mutation: updateActivityTitleMutation
 		});
 
 		if (result.success) {
@@ -338,9 +363,47 @@ const ActivityPage = () => {
 
 	const [selectedPriority, setSelectedPriority] = useState(priorities[0]);
 
+	const inputRef = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		function assertIsNode(e: EventTarget | null): asserts e is Node {
+			if (!e || !('nodeType' in e)) {
+				throw new Error(`Node expected`);
+			}
+		}
+
+		function handleClickOutside(event: MouseEvent) {
+			assertIsNode(event.target);
+
+			if (inputRef.current && !inputRef.current.contains(event.target)) {
+				setEditActivityTitle(false);
+
+				const formData = new FormData();
+
+				formData.append('_action', 'update-activity-title');
+				formData.append('id', `${loaderData.data.id}`);
+				formData.append('title', inputRef.current.value);
+
+				submit(formData, { method: 'post' });
+			}
+		}
+		// Bind the event listener
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			// Unbind the event listener on clean up
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, [inputRef, loaderData.data.id, submit]);
+
+	const navigation = useNavigation();
+	const activityTitle =
+		navigation.formData?.get('_action') === 'update-activity-title' &&
+		navigation.formData?.get('title')
+			? navigation.formData?.get('title')
+			: loaderData.data.title;
+
 	return (
 		<>
-			<div className="mt-[2.6875rem] flex justify-between">
+			<div className="mt-[2.6875rem] flex w-full justify-between">
 				<div className="flex items-center justify-between gap-x-[1.1875rem]">
 					<Link to="/" data-cy="todo-back-button">
 						<SvgIcon name="chevron-left" width={32} height={32} color="#111111" />
@@ -353,6 +416,7 @@ const ActivityPage = () => {
 							defaultValue={loaderData.data.title}
 							className="border-b border-[#111111] bg-transparent text-4xl font-bold leading-[3.375rem] focus:outline-none"
 							data-cy="todo-title"
+							ref={inputRef}
 						/>
 					) : (
 						<h1
@@ -360,16 +424,21 @@ const ActivityPage = () => {
 							onClick={() => setEditActivityTitle(true)}
 							data-cy="todo-title"
 						>
-							{loaderData.data.title}
+							{activityTitle?.toString()}
 						</h1>
 					)}
 
-					<button type="button" className="pr-10 text-[#A4A4A4]" data-cy="todo-title-edit-button">
+					<button
+						type="button"
+						className="pr-10 text-[#A4A4A4]"
+						data-cy="todo-title-edit-button"
+						onClick={() => setEditActivityTitle(true)}
+					>
 						<SvgIcon name="pencil" width={24} height={24} color="#A4A4A4" />
 					</button>
 				</div>
 
-				<div className="flex items-center gap-x-[1.125rem]">
+				<div className="flex shrink-0 items-center gap-x-[1.125rem]">
 					{loaderData.data.todo_items.length ? (
 						<Listbox value={selectedSort} onChange={setSelectedSort}>
 							<Listbox.Button
