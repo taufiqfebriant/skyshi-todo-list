@@ -1,11 +1,14 @@
-import type { UpdateActivityTitleSchema } from '../routes/activity';
+export type UpdateActivityTitleSchema = {
+	id: number;
+	title: string;
+};
 
-const updateActivityTitle = async (params: UpdateActivityTitleSchema) => {
-	const response = await fetch(`${import.meta.env.VITE_API_URL}/activity-groups/${params.id}`, {
+export const updateActivityTitle = async (params: UpdateActivityTitleSchema) => {
+	const { id, ...rest } = params;
+
+	const response = await fetch(`${import.meta.env.VITE_API_URL}/activity-groups/${id}`, {
 		method: 'PATCH',
-		body: JSON.stringify({
-			title: params.title
-		}),
+		body: JSON.stringify({ ...rest }),
 		headers: {
 			'Content-Type': 'application/json'
 		}
@@ -15,5 +18,3 @@ const updateActivityTitle = async (params: UpdateActivityTitleSchema) => {
 
 	return response.json();
 };
-
-export default updateActivityTitle;

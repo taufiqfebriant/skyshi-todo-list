@@ -1,7 +1,6 @@
 import { Dialog, Listbox } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import clsx from 'clsx';
-import { makeDomainFunction } from 'domain-functions';
 import { useHead } from 'hoofd';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -14,14 +13,13 @@ import {
 	useNavigation,
 	useSubmit
 } from 'react-router-dom';
-import { z } from 'zod';
 import type { CheckTodoSchema } from '../actions/checkTodo';
 import { checkTodo } from '../actions/checkTodo';
 import type { CreateTodoFormSchema, CreateTodoSchema } from '../actions/createTodo';
 import { createTodo, createTodoFormSchema } from '../actions/createTodo';
 import type { DeleteTodoSchema } from '../actions/deleteTodo';
 import { deleteTodo } from '../actions/deleteTodo';
-import updateActivityTitle from '../actions/updateActivityTitle';
+import { updateActivityTitle } from '../actions/updateActivityTitle';
 import type { UpdateTodoFormSchema, UpdateTodoSchema } from '../actions/updateTodo';
 import { updateTodo, updateTodoFormSchema } from '../actions/updateTodo';
 import SvgIcon from '../components/SvgIcon';
@@ -82,20 +80,6 @@ const priorities: PriorityOption[] = [
 	}
 ];
 
-const ACTIONS = ['create', 'delete', 'check', 'update', 'update-activity-title'] as const;
-
-const updateActivityTitleSchema = z.object({
-	id: z.number().min(1),
-	title: z.string().min(1),
-	_action: z.enum(ACTIONS)
-});
-
-const updateActivityTitleMutation = makeDomainFunction(updateActivityTitleSchema)(async values => {
-	return updateActivityTitle(values);
-});
-
-export type UpdateActivityTitleSchema = z.infer<typeof updateActivityTitleSchema>;
-
 enum Action {
 	Create = 'create',
 	Delete = 'delete',
@@ -119,6 +103,12 @@ type CheckSchema = {
 type UpdateSchema = {
 	_action: Action;
 } & UpdateTodoSchema;
+
+type UpdateActivityTitleSchema = {
+	_action: Action;
+	id: string;
+	title: string;
+};
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
@@ -160,6 +150,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		try {
 			const { _action, ...rest } = Object.fromEntries(formData) as unknown as UpdateSchema;
 			await updateTodo({ ...rest });
+			success = true;
+		} catch {
+			success = false;
+		}
+	}
+
+	if (_action === Action.UpdateActivityTitle) {
+		try {
+			const { _action, ...rest } = Object.fromEntries(
+				formData
+			) as unknown as UpdateActivityTitleSchema;
+
+			await updateActivityTitle({ ...rest, id: +rest.id });
+
 			success = true;
 		} catch {
 			success = false;
@@ -312,7 +316,7 @@ const ActivityPage = () => {
 
 				const formData = new FormData();
 
-				formData.append('_action', 'update-activity-title');
+				formData.append('_action', Action.UpdateActivityTitle);
 				formData.append('id', `${loaderData.data.id}`);
 				formData.append('title', inputRef.current.value);
 
@@ -329,7 +333,7 @@ const ActivityPage = () => {
 
 	const navigation = useNavigation();
 	const activityTitle =
-		navigation.formData?.get('_action') === 'update-activity-title' &&
+		navigation.formData?.get('_action') === Action.UpdateActivityTitle &&
 		navigation.formData?.get('title')
 			? navigation.formData?.get('title')
 			: loaderData.data.title;
