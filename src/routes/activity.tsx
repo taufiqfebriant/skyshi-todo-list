@@ -17,7 +17,8 @@ import {
 } from 'react-router-dom';
 import { createForm } from 'remix-forms';
 import { z } from 'zod';
-import checkTodo from '../actions/checkTodo';
+import type { CheckTodoSchema } from '../actions/checkTodo';
+import { checkTodo } from '../actions/checkTodo';
 import type { CreateTodoFormSchema, CreateTodoSchema } from '../actions/createTodo';
 import { createTodo, createTodoFormSchema } from '../actions/createTodo';
 import type { DeleteTodoSchema } from '../actions/deleteTodo';
@@ -87,19 +88,6 @@ const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, us
 const ACTIONS = ['create', 'delete', 'check', 'update', 'update-activity-title'] as const;
 const PRIORITY_NAMES = ['very-high', 'high', 'normal', 'low', 'very-low'] as const;
 
-const checkSchema = z.object({
-	id: z.number().min(1),
-	priority: z.enum(PRIORITY_NAMES),
-	is_active: z.number().int().gte(0).lte(1),
-	_action: z.enum(ACTIONS)
-});
-
-const checkMutation = makeDomainFunction(checkSchema)(async values => {
-	return checkTodo(values);
-});
-
-export type CheckSchema = z.infer<typeof checkSchema>;
-
 const updateSchema = z.object({
 	id: z.number().min(1),
 	priority: z.enum(PRIORITY_NAMES),
@@ -142,6 +130,10 @@ type DeleteSchema = {
 	_action: Action;
 } & DeleteTodoSchema;
 
+type CheckSchema = {
+	_action: Action;
+} & CheckTodoSchema;
+
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	const _action = formData.get('_action') as Action | null;
@@ -162,6 +154,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		try {
 			const { _action, ...rest } = Object.fromEntries(formData) as unknown as DeleteSchema;
 			await deleteTodo({ ...rest });
+			success = true;
+		} catch {
+			success = false;
+		}
+	}
+
+	if (_action === Action.Check) {
+		try {
+			const { _action, ...rest } = Object.fromEntries(formData) as unknown as CheckSchema;
+			await checkTodo({ ...rest });
 			success = true;
 		} catch {
 			success = false;
@@ -200,6 +202,8 @@ const ActivityPage = () => {
 
 	const form = useForm<CreateSchema>({ resolver: zodResolver(createTodoFormSchema) });
 
+	const submit = useSubmit();
+
 	const [isOpen, setIsOpen] = useState(false);
 
 	const loaderData = useLoaderData() as LoaderData;
@@ -219,20 +223,6 @@ const ActivityPage = () => {
 	const handleConfirmDeleteClose = () => {
 		setSelectedTodo(null);
 		setIsConfirmDeletionOpen(false);
-	};
-
-	const submit = useSubmit();
-
-	const handleDelete = () => {
-		if (selectedTodo) {
-			const formData = new FormData();
-
-			formData.append('_action', 'delete');
-			formData.append('id', `${selectedTodo.id}`);
-
-			submit(formData, { method: 'post' });
-			setIsConfirmDeletionOpen(false);
-		}
 	};
 
 	const actionData = useActionData() as ActionData | undefined;
@@ -259,18 +249,6 @@ const ActivityPage = () => {
 			close = false;
 		};
 	}, [actionData?._action, actionData?.success]);
-
-	const handleTodoCheck = (todo: typeof loaderData['data']['todo_items'][number]) => {
-		const formData = new FormData();
-
-		formData.append('_action', 'check');
-		formData.append('id', `${todo.id}`);
-		formData.append('priority', `${todo.priority}`);
-		formData.append('is_active', todo.is_active ? '0' : '1');
-
-		submit(formData, { method: 'post' });
-		setIsConfirmDeletionOpen(false);
-	};
 
 	const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -366,6 +344,31 @@ const ActivityPage = () => {
 		formData.append('priority', params.priority); // TODO: Ganti pakek looping
 		formData.append('_action', 'create');
 		formData.append('activity_group_id', `${loaderData.data.id}`);
+
+		submit(formData, { method: 'post' });
+	};
+
+	type HandleDeleteParams = {
+		id: number;
+	};
+
+	const handleDelete = (params: HandleDeleteParams) => {
+		const formData = new FormData();
+
+		formData.append('_action', 'delete');
+		formData.append('id', `${params.id}`);
+
+		submit(formData, { method: 'post' });
+		setIsConfirmDeletionOpen(false);
+	};
+
+	const handleTodoCheck = (todo: typeof loaderData['data']['todo_items'][number]) => {
+		const formData = new FormData();
+
+		formData.append('_action', 'check');
+		formData.append('id', `${todo.id}`);
+		formData.append('priority', `${todo.priority}`);
+		formData.append('is_active', todo.is_active ? '0' : '1');
 
 		submit(formData, { method: 'post' });
 	};
@@ -591,74 +594,63 @@ const ActivityPage = () => {
 												}}
 												{...rest}
 											>
-												{({ open }) => (
-													<>
-														<Listbox.Label
-															className="text-xs font-semibold leading-[1.125rem]"
-															data-cy="modal-add-priority-title"
-														>
-															PRIORITY
-														</Listbox.Label>
+												<Listbox.Label
+													className="text-xs font-semibold leading-[1.125rem]"
+													data-cy="modal-add-priority-title"
+												>
+													PRIORITY
+												</Listbox.Label>
 
-														<div className="relative mt-[.5625rem] max-w-[12.8125rem] overflow-hidden rounded-md border border-[#E5E5E5] focus-within:border-[#16ABF8]">
-															<Listbox.Button
-																data-cy="modal-add-priority-dropdown"
-																className={clsx(
-																	'flex w-full items-center justify-between px-[1.0625rem] py-[.875rem]',
-																	{ 'bg-[#F4F4F4]': open }
-																)}
+												<div className="relative mt-[.5625rem] box-border max-w-[12.8125rem]">
+													<Listbox.Button
+														data-cy="modal-add-priority-dropdown"
+														className="flex w-full items-center justify-between rounded-md border border-[#E5E5E5] px-[1.0625rem] py-[.875rem] focus:border-[#16ABF8]"
+													>
+														<div
+															data-cy="modal-add-priority-item"
+															className="flex items-center gap-x-[1.1875rem]"
+														>
+															<Color
+																color={selectedPriority.color}
+																className="h-[.875rem] w-[.875rem]"
+															/>
+
+															<span>{selectedPriority.display}</span>
+														</div>
+
+														<SvgIcon name="chevron-down" width={24} height={24} color="#111111" />
+													</Listbox.Button>
+
+													<Listbox.Options className="absolute top-0 left-0 w-full divide-y divide-[#E5E5E5] overflow-hidden rounded-md border border-[#16ABF8] bg-white">
+														<Listbox.Option
+															disabled={true}
+															value={null}
+															className="flex items-center justify-between bg-[#F4F4F4] py-[.875rem] pl-[1.0625rem] pr-[1.4375rem]"
+														>
+															<span>Pilih priority</span>
+
+															<SvgIcon name="chevron-up" width={24} height={24} color="#111111" />
+														</Listbox.Option>
+
+														{priorities.map(priority => (
+															<Listbox.Option
+																key={priority.name}
+																value={priority.name}
+																data-cy="modal-add-priority-item"
+																className="flex items-center py-[.875rem] pl-[1.0625rem] pr-[1.4375rem] text-[#4A4A4A] hover:cursor-pointer"
 															>
-																<div
-																	data-cy="modal-add-priority-item"
-																	className="flex items-center gap-x-[1.1875rem]"
-																>
+																<div className="flex items-center gap-x-[1.1875rem]">
 																	<Color
-																		color={selectedPriority.color}
+																		color={priority.color}
 																		className="h-[.875rem] w-[.875rem]"
 																	/>
 
-																	<span>{selectedPriority.display}</span>
+																	<span>{priority.display}</span>
 																</div>
-
-																{open ? (
-																	<SvgIcon
-																		name="chevron-up"
-																		width={24}
-																		height={24}
-																		color="#111111"
-																	/>
-																) : (
-																	<SvgIcon
-																		name="chevron-down"
-																		width={24}
-																		height={24}
-																		color="#111111"
-																	/>
-																)}
-															</Listbox.Button>
-
-															<Listbox.Options className="divide-y divide-[#E5E5E5] bg-white text-[#4A4A4A]">
-																{priorities.map(priority => (
-																	<Listbox.Option
-																		key={priority.name}
-																		value={priority.name}
-																		data-cy="modal-add-priority-item"
-																		className="flex items-center py-[.875rem] pl-[1.0625rem] pr-[1.4375rem] hover:cursor-pointer"
-																	>
-																		<div className="flex items-center gap-x-[1.1875rem]">
-																			<Color
-																				color={priority.color}
-																				className="h-[.875rem] w-[.875rem]"
-																			/>
-
-																			<span>{priority.display}</span>
-																		</div>
-																	</Listbox.Option>
-																))}
-															</Listbox.Options>
-														</div>
-													</>
-												)}
+															</Listbox.Option>
+														))}
+													</Listbox.Options>
+												</div>
 											</Listbox>
 										)}
 									/>
@@ -800,7 +792,11 @@ const ActivityPage = () => {
 							<button
 								className="h-[3.375rem] w-[9.375rem] rounded-[2.8125rem] bg-[#ED4C5C] text-lg font-semibold leading-[1.6875rem] text-white"
 								type="button"
-								onClick={handleDelete}
+								onClick={() => {
+									if (selectedTodo) {
+										handleDelete({ id: selectedTodo.id });
+									}
+								}}
 								data-cy="modal-delete-confirm-button"
 							>
 								Hapus

@@ -1,12 +1,17 @@
-import type { CheckSchema } from '../routes/activity';
+import type { Priority } from '../types';
 
-const checkTodo = async (params: CheckSchema) => {
-	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items/${params.id}`, {
+export type CheckTodoSchema = {
+	id: number;
+	is_active: 0 | 1;
+	priority: Priority;
+};
+
+export const checkTodo = async (params: CheckTodoSchema) => {
+	const { id, ...rest } = params;
+
+	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items/${id}`, {
 		method: 'PATCH',
-		body: JSON.stringify({
-			is_active: params.is_active,
-			priority: params.priority
-		}),
+		body: JSON.stringify({ ...rest }),
 		headers: {
 			'Content-Type': 'application/json'
 		}
@@ -16,5 +21,3 @@ const checkTodo = async (params: CheckSchema) => {
 
 	return response.json();
 };
-
-export default checkTodo;
