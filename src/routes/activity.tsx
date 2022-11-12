@@ -20,7 +20,8 @@ import { z } from 'zod';
 import checkTodo from '../actions/checkTodo';
 import type { CreateTodoFormSchema, CreateTodoSchema } from '../actions/createTodo';
 import { createTodo, createTodoFormSchema } from '../actions/createTodo';
-import deleteTodo from '../actions/deleteTodo';
+import type { DeleteTodoSchema } from '../actions/deleteTodo';
+import { deleteTodo } from '../actions/deleteTodo';
 import updateActivityTitle from '../actions/updateActivityTitle';
 import updateTodo from '../actions/updateTodo';
 import SvgIcon from '../components/SvgIcon';
@@ -86,17 +87,6 @@ const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, us
 const ACTIONS = ['create', 'delete', 'check', 'update', 'update-activity-title'] as const;
 const PRIORITY_NAMES = ['very-high', 'high', 'normal', 'low', 'very-low'] as const;
 
-const deleteSchema = z.object({
-	id: z.number().min(1),
-	_action: z.enum(ACTIONS)
-});
-
-const deleteMutation = makeDomainFunction(deleteSchema)(async values => {
-	return deleteTodo({ id: values.id });
-});
-
-type DeleteSchema = z.infer<typeof deleteSchema>;
-
 const checkSchema = z.object({
 	id: z.number().min(1),
 	priority: z.enum(PRIORITY_NAMES),
@@ -148,6 +138,10 @@ type CreateSchema = {
 	_action: Action;
 } & CreateTodoSchema;
 
+type DeleteSchema = {
+	_action: Action;
+} & DeleteTodoSchema;
+
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	const _action = formData.get('_action') as Action | null;
@@ -158,6 +152,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		try {
 			const { _action, ...rest } = Object.fromEntries(formData) as unknown as CreateSchema;
 			await createTodo({ ...rest });
+			success = true;
+		} catch {
+			success = false;
+		}
+	}
+
+	if (_action === Action.Delete) {
+		try {
+			const { _action, ...rest } = Object.fromEntries(formData) as unknown as DeleteSchema;
+			await deleteTodo({ ...rest });
 			success = true;
 		} catch {
 			success = false;
@@ -355,7 +359,7 @@ const ActivityPage = () => {
 			? navigation.formData?.get('title')
 			: loaderData.data.title;
 
-	const onCreateSubmit = (params: CreateTodoFormSchema) => {
+	const handleCreate = (params: CreateTodoFormSchema) => {
 		const formData = new FormData();
 
 		formData.append('title', params.title); // TODO: Ganti pakek looping
@@ -549,7 +553,7 @@ const ActivityPage = () => {
 							</button>
 						</div>
 
-						<form onSubmit={form.handleSubmit(onCreateSubmit)}>
+						<form onSubmit={form.handleSubmit(handleCreate)}>
 							<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
 								<div className="flex flex-col gap-y-[.5625rem]">
 									<label

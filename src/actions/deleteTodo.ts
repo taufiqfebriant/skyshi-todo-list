@@ -1,8 +1,8 @@
-type Params = {
+export type DeleteTodoSchema = {
 	id: number;
 };
 
-const deleteTodo = async (params: Params) => {
+export const deleteTodo = async (params: DeleteTodoSchema) => {
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items/${params.id}`, {
 		method: 'DELETE'
 	});
@@ -11,5 +11,3 @@ const deleteTodo = async (params: Params) => {
 
 	return response.json();
 };
-
-export default deleteTodo;
