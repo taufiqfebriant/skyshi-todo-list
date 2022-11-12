@@ -7,7 +7,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router-dom';
 import {
-	Form as FrameworkForm,
 	json,
 	Link,
 	useActionData,
@@ -15,7 +14,6 @@ import {
 	useNavigation,
 	useSubmit
 } from 'react-router-dom';
-import { createForm } from 'remix-forms';
 import { z } from 'zod';
 import type { CheckTodoSchema } from '../actions/checkTodo';
 import { checkTodo } from '../actions/checkTodo';
@@ -24,7 +22,8 @@ import { createTodo, createTodoFormSchema } from '../actions/createTodo';
 import type { DeleteTodoSchema } from '../actions/deleteTodo';
 import { deleteTodo } from '../actions/deleteTodo';
 import updateActivityTitle from '../actions/updateActivityTitle';
-import updateTodo from '../actions/updateTodo';
+import type { UpdateTodoFormSchema, UpdateTodoSchema } from '../actions/updateTodo';
+import { updateTodo, updateTodoFormSchema } from '../actions/updateTodo';
 import SvgIcon from '../components/SvgIcon';
 import emptyStateImg from '../images/todo-empty-state.png';
 import type { Activity } from '../loaders/getActivity';
@@ -83,24 +82,7 @@ const priorities: PriorityOption[] = [
 	}
 ];
 
-const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, useActionData });
-
 const ACTIONS = ['create', 'delete', 'check', 'update', 'update-activity-title'] as const;
-const PRIORITY_NAMES = ['very-high', 'high', 'normal', 'low', 'very-low'] as const;
-
-const updateSchema = z.object({
-	id: z.number().min(1),
-	priority: z.enum(PRIORITY_NAMES),
-	title: z.string().min(1),
-	is_active: z.number().int().gte(0).lte(1),
-	_action: z.enum(ACTIONS)
-});
-
-const updateMutation = makeDomainFunction(updateSchema)(async values => {
-	return updateTodo(values);
-});
-
-export type UpdateSchema = z.infer<typeof updateSchema>;
 
 const updateActivityTitleSchema = z.object({
 	id: z.number().min(1),
@@ -133,6 +115,10 @@ type DeleteSchema = {
 type CheckSchema = {
 	_action: Action;
 } & CheckTodoSchema;
+
+type UpdateSchema = {
+	_action: Action;
+} & UpdateTodoSchema;
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
@@ -170,6 +156,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		}
 	}
 
+	if (_action === Action.Update) {
+		try {
+			const { _action, ...rest } = Object.fromEntries(formData) as unknown as UpdateSchema;
+			await updateTodo({ ...rest });
+			success = true;
+		} catch {
+			success = false;
+		}
+	}
+
 	return json({ _action, success });
 };
 
@@ -200,7 +196,8 @@ const ActivityPage = () => {
 		title: 'To Do List - Detail'
 	});
 
-	const form = useForm<CreateSchema>({ resolver: zodResolver(createTodoFormSchema) });
+	const createForm = useForm<CreateTodoFormSchema>({ resolver: zodResolver(createTodoFormSchema) });
+	const updateForm = useForm<UpdateTodoFormSchema>({ resolver: zodResolver(updateTodoFormSchema) });
 
 	const submit = useSubmit();
 
@@ -340,8 +337,8 @@ const ActivityPage = () => {
 	const handleCreate = (params: CreateTodoFormSchema) => {
 		const formData = new FormData();
 
-		formData.append('title', params.title); // TODO: Ganti pakek looping
-		formData.append('priority', params.priority); // TODO: Ganti pakek looping
+		formData.append('title', params.title);
+		formData.append('priority', params.priority);
 		formData.append('_action', 'create');
 		formData.append('activity_group_id', `${loaderData.data.id}`);
 
@@ -362,13 +359,27 @@ const ActivityPage = () => {
 		setIsConfirmDeletionOpen(false);
 	};
 
-	const handleTodoCheck = (todo: typeof loaderData['data']['todo_items'][number]) => {
+	const handleCheck = (todo: typeof loaderData['data']['todo_items'][number]) => {
 		const formData = new FormData();
 
 		formData.append('_action', 'check');
 		formData.append('id', `${todo.id}`);
 		formData.append('priority', `${todo.priority}`);
 		formData.append('is_active', todo.is_active ? '0' : '1');
+
+		submit(formData, { method: 'post' });
+	};
+
+	const handleUpdate = (params: UpdateTodoFormSchema) => {
+		if (!selectedTodo) return;
+
+		const formData = new FormData();
+
+		formData.append('title', params.title);
+		formData.append('priority', params.priority);
+		formData.append('_action', 'update');
+		formData.append('id', `${selectedTodo.id}`);
+		formData.append('is_active', `${selectedTodo.is_active}`);
 
 		submit(formData, { method: 'post' });
 	};
@@ -472,7 +483,7 @@ const ActivityPage = () => {
 								type="checkbox"
 								className="h-5 w-5"
 								checked={!todo.is_active}
-								onChange={() => handleTodoCheck(todo)}
+								onChange={() => handleCheck(todo)}
 								data-cy="todo-item-checkbox"
 							/>
 
@@ -529,8 +540,7 @@ const ActivityPage = () => {
 			)}
 
 			{/** TODO: Tambah animasi */}
-			<Dialog open={isOpen} onClose={() => setIsOpen(false)} className="relative z-40">
-				{/* The backdrop, rendered as a fixed sibling to the panel container */}
+			<Dialog open={isOpen} onClose={() => setIsOpen(false)} className="relative z-50">
 				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
 
 				<div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4">
@@ -556,7 +566,7 @@ const ActivityPage = () => {
 							</button>
 						</div>
 
-						<form onSubmit={form.handleSubmit(handleCreate)}>
+						<form onSubmit={createForm.handleSubmit(handleCreate)}>
 							<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
 								<div className="flex flex-col gap-y-[.5625rem]">
 									<label
@@ -572,13 +582,13 @@ const ActivityPage = () => {
 										placeholder="Tambahkan nama list item"
 										data-cy="modal-add-name-input"
 										id="title"
-										{...form.register('title')}
+										{...createForm.register('title')}
 									/>
 								</div>
 
 								<div className="mt-[1.625rem]">
 									<Controller
-										control={form.control}
+										control={createForm.control}
 										defaultValue={Priority.VeryHigh}
 										name="priority"
 										render={({ field: { onChange, ...rest } }) => (
@@ -659,7 +669,7 @@ const ActivityPage = () => {
 
 							<div className="flex justify-end border-t border-[#E5E5E5] pr-10 pt-[.9375rem] pb-[1.1875rem]">
 								<button
-									disabled={!form.formState.isValid}
+									disabled={!createForm.formState.isValid}
 									className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
 									data-cy="modal-add-save-button"
 									type="submit"
@@ -674,7 +684,6 @@ const ActivityPage = () => {
 
 			{/** TODO: Tambah animasi */}
 			<Dialog open={isEditOpen} onClose={() => setIsEditOpen(false)} className="relative z-50">
-				{/* The backdrop, rendered as a fixed sibling to the panel container */}
 				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
 
 				<div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4">
@@ -689,66 +698,103 @@ const ActivityPage = () => {
 							</button>
 						</div>
 
-						<Form
-							schema={updateSchema}
-							method="post"
-							hiddenFields={['id', '_action', 'is_active']}
-							values={{
-								id: selectedTodo?.id,
-								_action: 'update',
-								title: selectedTodo?.title,
-								priority: selectedTodo?.priority,
-								is_active: selectedTodo?.is_active
-							}}
-						>
-							{({ Field, Button, formState }) => (
-								<>
-									<Field name="id" />
-									<Field name="_action" />
-									<Field name="is_active" />
+						<form onSubmit={updateForm.handleSubmit(handleUpdate)}>
+							<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
+								<div className="flex flex-col gap-y-[.5625rem]">
+									<label className="text-xs font-semibold leading-[1.125rem]" htmlFor="title">
+										NAMA LIST ITEM
+									</label>
 
-									<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
-										<Field name="title">
-											{({ Label, SmartInput, Error }) => (
-												<div className="flex flex-col gap-y-[.5625rem]">
-													<Label className="text-xs font-semibold leading-[1.125rem]">
-														NAMA LIST ITEM
-													</Label>
+									<input
+										className="h-[3.25rem] rounded-md border border-[#E5E5E5] px-[1.125rem] focus:border-[#16ABF8] focus:outline-none"
+										placeholder="Tambahkan nama list item"
+										id="title"
+										defaultValue={selectedTodo?.title}
+										{...updateForm.register('title')}
+									/>
+								</div>
 
-													<SmartInput
-														className="h-[3.25rem] rounded-md border border-[#E5E5E5] px-[1.125rem] focus:border-[#16ABF8] focus:outline-none"
-														placeholder="Tambahkan nama list item"
-													/>
+								<div className="mt-[1.625rem]">
+									<Controller
+										control={updateForm.control}
+										defaultValue={selectedTodo?.priority}
+										name="priority"
+										render={({ field: { onChange, ...rest } }) => (
+											<Listbox
+												as="div"
+												onChange={priority => {
+													onChange(priority);
 
-													<Error />
+													const relatedPriority = priorities.find(p => p.name === priority);
+													if (relatedPriority) {
+														setSelectedPriority(relatedPriority);
+													}
+												}}
+												{...rest}
+											>
+												<Listbox.Label className="text-xs font-semibold leading-[1.125rem]">
+													PRIORITY
+												</Listbox.Label>
+
+												<div className="relative mt-[.5625rem] box-border max-w-[12.8125rem]">
+													<Listbox.Button className="flex w-full items-center justify-between rounded-md border border-[#E5E5E5] px-[1.0625rem] py-[.875rem] focus:border-[#16ABF8]">
+														<div className="flex items-center gap-x-[1.1875rem]">
+															<Color
+																color={selectedPriority.color}
+																className="h-[.875rem] w-[.875rem]"
+															/>
+
+															<span>{selectedPriority.display}</span>
+														</div>
+
+														<SvgIcon name="chevron-down" width={24} height={24} color="#111111" />
+													</Listbox.Button>
+
+													<Listbox.Options className="absolute top-0 left-0 w-full divide-y divide-[#E5E5E5] overflow-hidden rounded-md border border-[#16ABF8] bg-white">
+														<Listbox.Option
+															disabled={true}
+															value={null}
+															className="flex items-center justify-between bg-[#F4F4F4] py-[.875rem] pl-[1.0625rem] pr-[1.4375rem]"
+														>
+															<span>Pilih priority</span>
+
+															<SvgIcon name="chevron-up" width={24} height={24} color="#111111" />
+														</Listbox.Option>
+
+														{priorities.map(priority => (
+															<Listbox.Option
+																key={priority.name}
+																value={priority.name}
+																className="flex items-center py-[.875rem] pl-[1.0625rem] pr-[1.4375rem] text-[#4A4A4A] hover:cursor-pointer"
+															>
+																<div className="flex items-center gap-x-[1.1875rem]">
+																	<Color
+																		color={priority.color}
+																		className="h-[.875rem] w-[.875rem]"
+																	/>
+
+																	<span>{priority.display}</span>
+																</div>
+															</Listbox.Option>
+														))}
+													</Listbox.Options>
 												</div>
-											)}
-										</Field>
+											</Listbox>
+										)}
+									/>
+								</div>
+							</div>
 
-										<Field name="priority" label="PRIORITY">
-											{({ Error, Label, Select }) => (
-												<div className="mt-[1.625rem] flex flex-col gap-y-[.5625rem]">
-													<Label className="text-xs font-semibold leading-[1.125rem]" />
-
-													<Select />
-
-													<Error />
-												</div>
-											)}
-										</Field>
-									</div>
-
-									<div className="flex justify-end border-t border-[#E5E5E5] pr-10 pt-[.9375rem] pb-[1.1875rem]">
-										<Button
-											disabled={!formState.isValid}
-											className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
-										>
-											Simpan
-										</Button>
-									</div>
-								</>
-							)}
-						</Form>
+							<div className="flex justify-end border-t border-[#E5E5E5] pr-10 pt-[.9375rem] pb-[1.1875rem]">
+								<button
+									disabled={!updateForm.formState.isValid}
+									className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
+									type="submit"
+								>
+									Simpan
+								</button>
+							</div>
+						</form>
 					</Dialog.Panel>
 				</div>
 			</Dialog>
