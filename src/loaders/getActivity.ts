@@ -1,10 +1,4 @@
-export enum Priority {
-	VeryHigh = 'very-high',
-	High = 'high',
-	Normal = 'normal',
-	Low = 'low',
-	VeryLow = 'very-low'
-}
+import type { Priority } from '../types';
 
 export type Activity = {
 	id: number;

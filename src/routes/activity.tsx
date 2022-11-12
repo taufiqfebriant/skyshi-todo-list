@@ -1,9 +1,10 @@
 import { Dialog, Listbox } from '@headlessui/react';
+import { zodResolver } from '@hookform/resolvers/zod';
 import clsx from 'clsx';
 import { makeDomainFunction } from 'domain-functions';
 import { useHead } from 'hoofd';
 import { useEffect, useRef, useState } from 'react';
-import { Controller } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router-dom';
 import {
 	Form as FrameworkForm,
@@ -14,17 +15,19 @@ import {
 	useNavigation,
 	useSubmit
 } from 'react-router-dom';
-import { createForm, performMutation } from 'remix-forms';
+import { createForm } from 'remix-forms';
 import { z } from 'zod';
 import checkTodo from '../actions/checkTodo';
-import createTodo from '../actions/createTodo';
+import type { CreateTodoFormSchema, CreateTodoSchema } from '../actions/createTodo';
+import { createTodo, createTodoFormSchema } from '../actions/createTodo';
 import deleteTodo from '../actions/deleteTodo';
 import updateActivityTitle from '../actions/updateActivityTitle';
 import updateTodo from '../actions/updateTodo';
 import SvgIcon from '../components/SvgIcon';
 import emptyStateImg from '../images/todo-empty-state.png';
 import type { Activity } from '../loaders/getActivity';
-import getActivity, { Priority } from '../loaders/getActivity';
+import getActivity from '../loaders/getActivity';
+import { Priority } from '../types';
 
 type LoaderData = {
 	data: Activity;
@@ -83,19 +86,6 @@ const Form = createForm({ component: FrameworkForm, useNavigation, useSubmit, us
 const ACTIONS = ['create', 'delete', 'check', 'update', 'update-activity-title'] as const;
 const PRIORITY_NAMES = ['very-high', 'high', 'normal', 'low', 'very-low'] as const;
 
-const createSchema = z.object({
-	activity_group_id: z.string().min(1),
-	priority: z.enum(PRIORITY_NAMES),
-	title: z.string().min(1),
-	_action: z.enum(ACTIONS)
-});
-
-const createMutation = makeDomainFunction(createSchema)(async values => {
-	return createTodo(values);
-});
-
-export type CreateSchema = z.infer<typeof createSchema>;
-
 const deleteSchema = z.object({
 	id: z.number().min(1),
 	_action: z.enum(ACTIONS)
@@ -146,77 +136,39 @@ const updateActivityTitleMutation = makeDomainFunction(updateActivityTitleSchema
 
 export type UpdateActivityTitleSchema = z.infer<typeof updateActivityTitleSchema>;
 
+enum Action {
+	Create = 'create',
+	Delete = 'delete',
+	Check = 'check',
+	Update = 'update',
+	UpdateActivityTitle = 'updateActivityTitle'
+}
+
+type CreateSchema = {
+	_action: Action;
+} & CreateTodoSchema;
+
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await request.clone().formData();
-	const data = Object.fromEntries(formData) as CreateSchema | DeleteSchema;
+	const formData = await request.formData();
+	const _action = formData.get('_action') as Action | null;
 
 	let success = false;
 
-	if (data._action === 'create') {
-		const result = await performMutation({
-			request,
-			schema: createSchema,
-			mutation: createMutation
-		});
-
-		if (result.success) {
+	if (_action === Action.Create) {
+		try {
+			const { _action, ...rest } = Object.fromEntries(formData) as unknown as CreateSchema;
+			await createTodo({ ...rest });
 			success = true;
+		} catch {
+			success = false;
 		}
 	}
 
-	if (data._action === 'delete') {
-		const result = await performMutation({
-			request,
-			schema: deleteSchema,
-			mutation: deleteMutation
-		});
-
-		if (result.success) {
-			success = true;
-		}
-	}
-
-	if (data._action === 'check') {
-		const result = await performMutation({
-			request,
-			schema: checkSchema,
-			mutation: checkMutation
-		});
-
-		if (result.success) {
-			success = true;
-		}
-	}
-
-	if (data._action === 'update') {
-		const result = await performMutation({
-			request,
-			schema: updateSchema,
-			mutation: updateMutation
-		});
-
-		if (result.success) {
-			success = true;
-		}
-	}
-
-	if (data._action === 'update-activity-title') {
-		const result = await performMutation({
-			request,
-			schema: updateActivityTitleSchema,
-			mutation: updateActivityTitleMutation
-		});
-
-		if (result.success) {
-			success = true;
-		}
-	}
-
-	return json({ _action: data._action, success });
+	return json({ _action, success });
 };
 
 type ActionData = {
-	_action: z.infer<typeof createSchema>['_action'];
+	_action: Action;
 	success: boolean;
 };
 
@@ -241,6 +193,8 @@ const ActivityPage = () => {
 	useHead({
 		title: 'To Do List - Detail'
 	});
+
+	const form = useForm<CreateSchema>({ resolver: zodResolver(createTodoFormSchema) });
 
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -401,6 +355,17 @@ const ActivityPage = () => {
 			? navigation.formData?.get('title')
 			: loaderData.data.title;
 
+	const onCreateSubmit = (params: CreateTodoFormSchema) => {
+		const formData = new FormData();
+
+		formData.append('title', params.title); // TODO: Ganti pakek looping
+		formData.append('priority', params.priority); // TODO: Ganti pakek looping
+		formData.append('_action', 'create');
+		formData.append('activity_group_id', `${loaderData.data.id}`);
+
+		submit(formData, { method: 'post' });
+	};
+
 	return (
 		<>
 			<div className="mt-[2.6875rem] flex w-full justify-between">
@@ -557,7 +522,7 @@ const ActivityPage = () => {
 			)}
 
 			{/** TODO: Tambah animasi */}
-			<Dialog open={isOpen} onClose={() => setIsOpen(false)} className="relative z-50">
+			<Dialog open={isOpen} onClose={() => setIsOpen(false)} className="relative z-40">
 				{/* The backdrop, rendered as a fixed sibling to the panel container */}
 				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
 
@@ -584,116 +549,129 @@ const ActivityPage = () => {
 							</button>
 						</div>
 
-						<Form
-							schema={createSchema}
-							method="post"
-							hiddenFields={['activity_group_id', '_action']}
-							values={{
-								activity_group_id: loaderData.data.id,
-								_action: 'create',
-								priority: 'very-high'
-							}}
-						>
-							{({ Field, Button, formState, control }) => (
-								<>
-									<Field name="activity_group_id" />
-									<Field name="_action" />
+						<form onSubmit={form.handleSubmit(onCreateSubmit)}>
+							<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
+								<div className="flex flex-col gap-y-[.5625rem]">
+									<label
+										className="text-xs font-semibold leading-[1.125rem]"
+										data-cy="modal-add-name-title"
+										htmlFor="title"
+									>
+										NAMA LIST ITEM
+									</label>
 
-									<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
-										<Field name="title">
-											{({ Label, SmartInput, Error }) => (
-												<div className="flex flex-col gap-y-[.5625rem]">
-													<Label
-														className="text-xs font-semibold leading-[1.125rem]"
-														data-cy="modal-add-name-title"
-													>
-														NAMA LIST ITEM
-													</Label>
+									<input
+										className="h-[3.25rem] rounded-md border border-[#E5E5E5] px-[1.125rem] focus:border-[#16ABF8] focus:outline-none"
+										placeholder="Tambahkan nama list item"
+										data-cy="modal-add-name-input"
+										id="title"
+										{...form.register('title')}
+									/>
+								</div>
 
-													<SmartInput
-														className="h-[3.25rem] rounded-md border border-[#E5E5E5] px-[1.125rem] focus:border-[#16ABF8] focus:outline-none"
-														placeholder="Tambahkan nama list item"
-														data-cy="modal-add-name-input"
-													/>
+								<div className="mt-[1.625rem]">
+									<Controller
+										control={form.control}
+										defaultValue={Priority.VeryHigh}
+										name="priority"
+										render={({ field: { onChange, ...rest } }) => (
+											<Listbox
+												as="div"
+												onChange={priority => {
+													onChange(priority);
 
-													<Error />
-												</div>
-											)}
-										</Field>
+													const relatedPriority = priorities.find(p => p.name === priority);
+													if (relatedPriority) {
+														setSelectedPriority(relatedPriority);
+													}
+												}}
+												{...rest}
+											>
+												{({ open }) => (
+													<>
+														<Listbox.Label
+															className="text-xs font-semibold leading-[1.125rem]"
+															data-cy="modal-add-priority-title"
+														>
+															PRIORITY
+														</Listbox.Label>
 
-										<Field name="priority" label="PRIORITY">
-											{({ Error, Label }) => (
-												<div className="mt-[1.625rem] flex flex-col gap-y-[.5625rem]">
-													<Label
-														className="text-xs font-semibold leading-[1.125rem]"
-														data-cy="modal-add-priority-title"
-													/>
-
-													<Controller
-														control={control}
-														defaultValue="very-high"
-														name="priority"
-														render={({ field: { onChange, ...rest } }) => (
-															<Listbox
-																as="div"
-																defaultValue={selectedPriority.name}
-																onChange={priority => {
-																	onChange(priority);
-
-																	const relatedPriority = priorities.find(p => p.name === priority);
-																	if (relatedPriority) {
-																		setSelectedPriority(relatedPriority);
-																	}
-																}}
-																{...rest}
+														<div className="relative mt-[.5625rem] max-w-[12.8125rem] overflow-hidden rounded-md border border-[#E5E5E5] focus-within:border-[#16ABF8]">
+															<Listbox.Button
+																data-cy="modal-add-priority-dropdown"
+																className={clsx(
+																	'flex w-full items-center justify-between px-[1.0625rem] py-[.875rem]',
+																	{ 'bg-[#F4F4F4]': open }
+																)}
 															>
-																<Listbox.Button data-cy="modal-add-priority-dropdown">
-																	<div
+																<div
+																	data-cy="modal-add-priority-item"
+																	className="flex items-center gap-x-[1.1875rem]"
+																>
+																	<Color
+																		color={selectedPriority.color}
+																		className="h-[.875rem] w-[.875rem]"
+																	/>
+
+																	<span>{selectedPriority.display}</span>
+																</div>
+
+																{open ? (
+																	<SvgIcon
+																		name="chevron-up"
+																		width={24}
+																		height={24}
+																		color="#111111"
+																	/>
+																) : (
+																	<SvgIcon
+																		name="chevron-down"
+																		width={24}
+																		height={24}
+																		color="#111111"
+																	/>
+																)}
+															</Listbox.Button>
+
+															<Listbox.Options className="divide-y divide-[#E5E5E5] bg-white text-[#4A4A4A]">
+																{priorities.map(priority => (
+																	<Listbox.Option
+																		key={priority.name}
+																		value={priority.name}
 																		data-cy="modal-add-priority-item"
-																		className="flex items-center"
+																		className="flex items-center py-[.875rem] pl-[1.0625rem] pr-[1.4375rem] hover:cursor-pointer"
 																	>
-																		<Color
-																			color={selectedPriority.color}
-																			className="h-[.875rem] w-[.875rem]"
-																		/>
+																		<div className="flex items-center gap-x-[1.1875rem]">
+																			<Color
+																				color={priority.color}
+																				className="h-[.875rem] w-[.875rem]"
+																			/>
 
-																		<span>{selectedPriority.display}</span>
-																	</div>
-																</Listbox.Button>
+																			<span>{priority.display}</span>
+																		</div>
+																	</Listbox.Option>
+																))}
+															</Listbox.Options>
+														</div>
+													</>
+												)}
+											</Listbox>
+										)}
+									/>
+								</div>
+							</div>
 
-																<Listbox.Options>
-																	{priorities.map(priority => (
-																		<Listbox.Option
-																			key={priority.name}
-																			value={priority.name}
-																			data-cy="modal-add-priority-item"
-																		>
-																			{priority.display}
-																		</Listbox.Option>
-																	))}
-																</Listbox.Options>
-															</Listbox>
-														)}
-													/>
-
-													<Error />
-												</div>
-											)}
-										</Field>
-									</div>
-
-									<div className="flex justify-end border-t border-[#E5E5E5] pr-10 pt-[.9375rem] pb-[1.1875rem]">
-										<Button
-											disabled={!formState.isValid}
-											className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
-											data-cy="modal-add-save-button"
-										>
-											Simpan
-										</Button>
-									</div>
-								</>
-							)}
-						</Form>
+							<div className="flex justify-end border-t border-[#E5E5E5] pr-10 pt-[.9375rem] pb-[1.1875rem]">
+								<button
+									disabled={!form.formState.isValid}
+									className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
+									data-cy="modal-add-save-button"
+									type="submit"
+								>
+									Simpan
+								</button>
+							</div>
+						</form>
 					</Dialog.Panel>
 				</div>
 			</Dialog>
