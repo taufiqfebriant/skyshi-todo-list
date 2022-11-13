@@ -194,6 +194,42 @@ const Color = (props: ColorProps) => {
 	);
 };
 
+enum Sort {
+	Latest = 'latest',
+	Oldest = 'oldest',
+	AZ = 'az',
+	ZA = 'za',
+	Unfinished = 'unfinished'
+}
+
+type SortOption = {
+	value: Sort;
+	display: string;
+};
+
+const sortOptions: SortOption[] = [
+	{
+		value: Sort.Latest,
+		display: 'Terbaru'
+	},
+	{
+		value: Sort.Oldest,
+		display: 'Terlama'
+	},
+	{
+		value: Sort.AZ,
+		display: 'A-Z'
+	},
+	{
+		value: Sort.ZA,
+		display: 'Z-A'
+	},
+	{
+		value: Sort.Unfinished,
+		display: 'Belum Selesai'
+	}
+];
+
 // TODO: Handle 404
 const ActivityPage = () => {
 	useHead({
@@ -258,25 +294,23 @@ const ActivityPage = () => {
 		setIsEditOpen(true);
 	};
 
-	const [selectedSort, setSelectedSort] = useState<
-		'latest' | 'oldest' | 'az' | 'za' | 'unfinished'
-	>('latest');
+	const [selectedSort, setSelectedSort] = useState<Sort>(Sort.Latest);
 
 	const sortedTodos = loaderData.data.todo_items;
 	sortedTodos.sort((a, b) => {
-		if (selectedSort === 'oldest') {
+		if (selectedSort === Sort.Oldest) {
 			return a.id - b.id;
 		}
 
-		if (selectedSort === 'az') {
+		if (selectedSort === Sort.AZ) {
 			return a.title.localeCompare(b.title);
 		}
 
-		if (selectedSort === 'za') {
+		if (selectedSort === Sort.ZA) {
 			return b.title.localeCompare(a.title);
 		}
 
-		if (selectedSort === 'unfinished') {
+		if (selectedSort === Sort.Unfinished) {
 			return b.is_active - a.is_active;
 		}
 
@@ -427,7 +461,7 @@ const ActivityPage = () => {
 
 				<div className="flex shrink-0 items-center gap-x-[1.125rem]">
 					{loaderData.data.todo_items.length ? (
-						<Listbox value={selectedSort} onChange={setSelectedSort}>
+						<Listbox as="div" className="relative" value={selectedSort} onChange={setSelectedSort}>
 							<Listbox.Button
 								className="flex h-[3.375rem] w-[3.375rem] items-center justify-center rounded-[2.8125rem] border border-[#E5E5E5] text-[#888888]"
 								data-cy="todo-sort-button"
@@ -436,28 +470,37 @@ const ActivityPage = () => {
 							</Listbox.Button>
 
 							<Listbox.Options
-								className="w-[14.6875rem] bg-white text-[#4A4A4A]"
+								className="absolute right-0 top-16 w-[14.6875rem] divide-y divide-[#E5E5E5] rounded-md bg-white text-[#4A4A4A] shadow-[0_6px_15px_5px_rgba(0,0,0,.1)]"
 								data-cy="sort-parent"
 							>
-								<Listbox.Option value="latest" className="py-[.875rem]" data-cy="sort-selection">
-									Terbaru
-								</Listbox.Option>
-								<Listbox.Option value="oldest" className="py-[.875rem]" data-cy="sort-selection">
-									Terlama
-								</Listbox.Option>
-								<Listbox.Option value="az" className="py-[.875rem]" data-cy="sort-selection">
-									A-Z
-								</Listbox.Option>
-								<Listbox.Option value="za" className="py-[.875rem]" data-cy="sort-selection">
-									Z-A
-								</Listbox.Option>
-								<Listbox.Option
-									value="unfinished"
-									className="py-[.875rem]"
-									data-cy="sort-selection"
-								>
-									Belum Selesai
-								</Listbox.Option>
+								{sortOptions.map(sortOption => (
+									<Listbox.Option
+										value={sortOption.value}
+										className="flex items-center gap-x-[.9375rem] py-[.875rem] px-[1.3125rem]"
+										data-cy="sort-selection"
+										key={sortOption.value}
+									>
+										{({ selected }) => (
+											<>
+												<SvgIcon
+													name={sortOption.value}
+													width={18}
+													height={18}
+													color="#16ABF8"
+													className="text-[#16ABF8]"
+												/>
+
+												<span className="flex-1 text-[#4A4A4A]">{sortOption.display}</span>
+
+												{selected ? (
+													<div className="text-[#4A4A4A]">
+														<SvgIcon name="check" width={18} height={18} color="#4A4A4A" />
+													</div>
+												) : null}
+											</>
+										)}
+									</Listbox.Option>
+								))}
 							</Listbox.Options>
 						</Listbox>
 					) : null}
