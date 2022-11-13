@@ -636,7 +636,6 @@ const ActivityPage = () => {
 								<div className="mt-[1.625rem]">
 									<Controller
 										control={createForm.control}
-										defaultValue={Priority.VeryHigh}
 										name="priority"
 										render={({ field: { onChange, ...rest } }) => (
 											<Listbox
