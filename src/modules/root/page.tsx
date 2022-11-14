@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 
-const Root = () => {
+export const RootPage = () => {
 	useEffect(() => {
 		document.body.classList.add('bg-[#F4F4F4]', 'text-[#111111]');
 	}, []);
@@ -24,5 +24,3 @@ const Root = () => {
 		</>
 	);
 };
-
-export default Root;

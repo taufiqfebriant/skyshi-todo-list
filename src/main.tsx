@@ -3,26 +3,27 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import 'virtual:svg-icons-register';
 import './index.css';
+import {
+	ActivitiesPage,
+	activitiesPageAction,
+	activitiesPageLoader
+} from './modules/activities/page';
+import { RootPage } from './modules/root/page';
 import ActivityPage, {
 	action as activityPageAction,
 	loader as activityPageLoader
 } from './routes/activity';
-import DashboardPage, {
-	action as dashboardPageAction,
-	loader as dashboardPageLoader
-} from './routes/dashboard';
-import Root from './routes/root';
 
 const router = createBrowserRouter([
 	{
 		path: '/',
-		element: <Root />,
+		element: <RootPage />,
 		children: [
 			{
 				path: '/',
-				element: <DashboardPage />,
-				action: dashboardPageAction,
-				loader: dashboardPageLoader
+				element: <ActivitiesPage />,
+				loader: activitiesPageLoader,
+				action: activitiesPageAction
 			},
 			{
 				path: '/detail/:id',

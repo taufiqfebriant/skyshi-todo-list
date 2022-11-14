@@ -1,19 +1,9 @@
-import { z } from 'zod';
-import { Priority } from '../types';
+import type { TodoFormSchema } from '../schemas/todo';
+import type { Todo } from '../utils';
 
-export const updateTodoFormSchema = z.object({
-	title: z.string().min(1),
-	priority: z.nativeEnum(Priority)
-});
+export type UpdateTodoParams = Pick<Todo, 'id' | 'is_active'> & TodoFormSchema;
 
-export type UpdateTodoFormSchema = z.infer<typeof updateTodoFormSchema>;
-
-export type UpdateTodoSchema = {
-	id: number;
-	is_active: 0 | 1;
-} & UpdateTodoFormSchema;
-
-export const updateTodo = async (params: UpdateTodoSchema) => {
+export const updateTodo = async (params: UpdateTodoParams) => {
 	const { id, ...rest } = params;
 
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items/${id}`, {

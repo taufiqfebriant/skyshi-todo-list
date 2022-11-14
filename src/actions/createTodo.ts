@@ -1,18 +1,9 @@
-import { z } from 'zod';
-import { Priority } from '../types';
+import type { TodoFormSchema } from '../schemas/todo';
+import type { Todo } from '../utils';
 
-export const createTodoFormSchema = z.object({
-	title: z.string().min(1),
-	priority: z.nativeEnum(Priority)
-});
+export type CreateTodoParams = Pick<Todo, 'activity_group_id'> & TodoFormSchema;
 
-export type CreateTodoFormSchema = z.infer<typeof createTodoFormSchema>;
-
-export type CreateTodoSchema = {
-	activity_group_id: number;
-} & CreateTodoFormSchema;
-
-export const createTodo = async (params: CreateTodoSchema) => {
+export const createTodo = async (params: CreateTodoParams) => {
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items`, {
 		method: 'POST',
 		body: JSON.stringify(params),
