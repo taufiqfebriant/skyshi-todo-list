@@ -9,7 +9,7 @@ export type GetActivitiesResponse = {
 
 export const getActivities = async () => {
 	const params = new URLSearchParams({
-		email: 'hello@taufiqf.com'
+		email: import.meta.env.VITE_EMAIL
 	});
 
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/activity-groups?${params}`, {
