@@ -67,7 +67,7 @@ export const activitiesPageAction = async ({ request }: ActionFunctionArgs) => {
 		}
 	}
 
-	return json({ subAction, success });
+	return json({ subAction: requestData.subAction, success });
 };
 
 export const ActivitiesPage = () => {
