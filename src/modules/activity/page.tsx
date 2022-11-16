@@ -586,10 +586,10 @@ export const ActivityPage = () => {
 													PRIORITY
 												</Listbox.Label>
 
-												<div className="relative mt-[.5625rem] box-border max-w-[12.8125rem]">
+												<div className="relative mt-[.5625rem] box-border max-w-[12.8125rem] border border-[#E5E5E5]">
 													<Listbox.Button
 														data-cy="modal-add-priority-dropdown"
-														className="flex w-full items-center justify-between rounded-md border border-[#E5E5E5] px-[1.0625rem] py-[.875rem] focus:border-[#16ABF8]"
+														className="flex w-full items-center justify-between rounded-md px-[1.0625rem] py-[.875rem]"
 													>
 														{value ? (
 															<div
@@ -610,17 +610,7 @@ export const ActivityPage = () => {
 														<SvgIcon name="chevron-down" width={24} height={24} color="#111111" />
 													</Listbox.Button>
 
-													<Listbox.Options className="absolute top-0 left-0 w-full divide-y divide-[#E5E5E5] overflow-hidden rounded-md border border-[#16ABF8] bg-white">
-														<Listbox.Option
-															disabled={true}
-															value={null}
-															className="flex items-center justify-between bg-[#F4F4F4] py-[.875rem] pl-[1.0625rem] pr-[1.4375rem]"
-														>
-															<span>Pilih priority</span>
-
-															<SvgIcon name="chevron-up" width={24} height={24} color="#111111" />
-														</Listbox.Option>
-
+													<Listbox.Options className="divide-y divide-[#E5E5E5] overflow-hidden rounded-b-md bg-white">
 														{priorities.map(priority => (
 															<Listbox.Option
 																key={priority}
