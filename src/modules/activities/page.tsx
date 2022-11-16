@@ -32,25 +32,24 @@ const subAction = ['create', 'delete'] as const;
 
 type SubAction = typeof subAction[number];
 
-type RequestFormData = {
+type ActionRequestData =
+	| {
+			subAction: typeof subAction[0];
+	  }
+	| { subAction: typeof subAction[1]; id: string };
+
+type ActionData = {
 	subAction: SubAction;
-};
-
-type DeleteRequestData = RequestFormData & {
-	id: string;
-};
-
-type ActionData = RequestFormData & {
 	success: boolean;
 };
 
 export const activitiesPageAction = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	const subAction = formData.get('subAction') as SubAction | null;
+	const requestData = Object.fromEntries(formData) as unknown as ActionRequestData;
 
 	let success = false;
 
-	if (subAction === 'create') {
+	if (requestData.subAction === 'create') {
 		try {
 			await createActivity();
 			success = true;
@@ -59,9 +58,8 @@ export const activitiesPageAction = async ({ request }: ActionFunctionArgs) => {
 		}
 	}
 
-	if (subAction === 'delete') {
+	if (requestData.subAction === 'delete') {
 		try {
-			const requestData = Object.fromEntries(formData) as unknown as DeleteRequestData;
 			await deleteActivity({ id: +requestData.id });
 			success = true;
 		} catch {
