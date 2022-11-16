@@ -8,11 +8,8 @@ import {
 	activitiesPageAction,
 	activitiesPageLoader
 } from './modules/activities/page';
+import { ActivityPage, activityPageAction, activityPageLoader } from './modules/activity/page';
 import { RootPage } from './modules/root/page';
-import ActivityPage, {
-	action as activityPageAction,
-	loader as activityPageLoader
-} from './routes/activity';
 
 const router = createBrowserRouter([
 	{

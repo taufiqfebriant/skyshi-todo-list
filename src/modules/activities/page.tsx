@@ -12,7 +12,7 @@ import {
 	useNavigation,
 	useSubmit
 } from 'react-router-dom';
-import SvgIcon from '../../components/SvgIcon';
+import { SvgIcon } from '../../components/SvgIcon';
 import emptyStateImg from './activity-empty-state.png';
 import { createActivity } from './createActivity';
 import { deleteActivity } from './deleteActivity';

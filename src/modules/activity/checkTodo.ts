@@ -1,12 +1,8 @@
-import type { Priority } from '../types';
+import type { Todo } from '../../utils';
 
-export type CheckTodoSchema = {
-	id: number;
-	is_active: 0 | 1;
-	priority: Priority;
-};
+type Params = Pick<Todo, 'id' | 'is_active' | 'priority'>;
 
-export const checkTodo = async (params: CheckTodoSchema) => {
+export const checkTodo = async (params: Params) => {
 	const { id, ...rest } = params;
 
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items/${id}`, {

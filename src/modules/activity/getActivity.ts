@@ -1,16 +1,9 @@
-import type { PriorityInfo, Todo } from '../utils';
-import { priorityInfo } from '../utils';
+import type { Activity, PriorityInfo, Todo } from '../../utils';
+import { priorityInfo } from '../../utils';
 
-type ModifiedTodo = Todo & Pick<PriorityInfo, 'color'>;
+type ModifiedTodo = Todo & PriorityInfo;
 
-type Activity = {
-	id: number;
-	title: string;
-	created_at: string;
-	todo_items: Todo[];
-};
-
-export type ModifiedActivity = Omit<Activity, 'todo_items'> & {
+export type ModifiedActivity = Activity & {
 	todo_items: ModifiedTodo[];
 };
 
@@ -25,7 +18,7 @@ export const getActivity = async (params: Params) => {
 
 	if (!response.ok) throw new Error('Failed to get activity');
 
-	const jsonResponse: Activity = await response.json();
+	const jsonResponse: ModifiedActivity = await response.json();
 
 	const newTodos: ModifiedTodo[] = jsonResponse.todo_items.map(todo => {
 		return {

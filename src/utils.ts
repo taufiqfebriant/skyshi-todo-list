@@ -1,8 +1,10 @@
+import type { ComponentType } from 'react';
+
 export const priorities = ['very-high', 'high', 'normal', 'low', 'very-low'] as const;
 
 type Priority = typeof priorities[number];
 
-type PriorityInfo = {
+export type PriorityInfo = {
 	color: string;
 };
 
@@ -41,3 +43,5 @@ export type Activity = {
 	title: string;
 	created_at: string;
 };
+
+export type ExtractProps<T> = T extends ComponentType<infer P> ? P : T;

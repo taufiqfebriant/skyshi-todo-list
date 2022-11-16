@@ -1,9 +1,6 @@
-export type UpdateActivityTitleParams = {
-	id: number;
-	title: string;
-};
+import type { Todo } from '../../utils';
 
-export const updateActivityTitle = async (params: UpdateActivityTitleParams) => {
+export const updateActivityTitle = async (params: Pick<Todo, 'id' | 'title'>) => {
 	const { id, ...rest } = params;
 
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/activity-groups/${id}`, {

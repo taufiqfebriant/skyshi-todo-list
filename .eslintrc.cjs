@@ -21,6 +21,7 @@ module.exports = {
 	},
 	plugins: ['react', '@typescript-eslint'],
 	rules: {
-		'@typescript-eslint/consistent-type-imports': 'error'
+		'@typescript-eslint/consistent-type-imports': 'error',
+		'@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }]
 	}
 };

@@ -13,38 +13,32 @@ import {
 	useNavigation,
 	useSubmit
 } from 'react-router-dom';
-import type { CheckTodoSchema } from '../actions/checkTodo';
-import { checkTodo } from '../actions/checkTodo';
-import type { CreateTodoParams } from '../actions/createTodo';
-import { createTodo } from '../actions/createTodo';
-import type { DeleteTodoSchema } from '../actions/deleteTodo';
-import { deleteTodo } from '../actions/deleteTodo';
-import type { UpdateActivityTitleParams } from '../actions/updateActivityTitle';
-import { updateActivityTitle } from '../actions/updateActivityTitle';
-import type { UpdateTodoParams } from '../actions/updateTodo';
-import { updateTodo } from '../actions/updateTodo';
-import SvgIcon from '../components/SvgIcon';
-import emptyStateImg from '../images/todo-empty-state.png';
-import type { ModifiedActivity } from '../loaders/getActivity';
-import { getActivity } from '../loaders/getActivity';
-import type { TodoFormSchema } from '../schemas/todo';
-import { todoFormSchema } from '../schemas/todo';
-import type { Todo } from '../utils';
-import { priorities, priorityInfo } from '../utils';
+import { z } from 'zod';
+import { SvgIcon } from '../../components/SvgIcon';
+import type { Todo } from '../../utils';
+import { priorities, priorityInfo } from '../../utils';
+import { checkTodo } from './checkTodo';
+import { createTodo } from './createTodo';
+import { deleteTodo } from './deleteTodo';
+import type { ModifiedActivity } from './getActivity';
+import { getActivity } from './getActivity';
+import emptyStateImg from './todo-empty-state.png';
+import { updateActivityTitle } from './updateActivityTitle';
+import { updateTodo } from './updateTodo';
 
 type LoaderData = {
 	data: ModifiedActivity;
 };
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
-	// TODO: Betulkan types & validasi
-	if (!params.id)
+export const activityPageLoader = async ({ params }: LoaderFunctionArgs) => {
+	if (!params.id) {
 		return json(
 			{ message: 'Anda harus menyertakan ID' },
 			{
 				status: 400
 			}
 		);
+	}
 
 	const data = await getActivity({ id: +params.id });
 	return json({ data });
@@ -54,76 +48,82 @@ const subAction = ['create', 'delete', 'check', 'update', 'updateActivityTitle']
 
 type SubAction = typeof subAction[number];
 
-type Schema = {
-	subAction: SubAction;
-};
+const activeStatus = ['0', '1'] as const;
 
-type CreateSchema = Schema &
-	Omit<CreateTodoParams, 'activity_group_id'> & {
-		activity_group_id: string;
-	};
+const todoFormSchema = z.object({
+	title: z.string().min(1),
+	priority: z.enum(priorities)
+});
 
-type UpdateSchema = Schema &
-	Omit<UpdateTodoParams, 'id' | 'is_active'> & {
-		id: string;
-		is_active: '0' | '1';
-	};
+type TodoFormSchema = z.infer<typeof todoFormSchema>;
 
-type DeleteSchema = Schema & DeleteTodoSchema;
-type CheckSchema = Schema & CheckTodoSchema;
+type ActionRequestData =
+	| ({
+			subAction: typeof subAction[0];
+			activity_group_id: string;
+	  } & TodoFormSchema)
+	| ({
+			subAction: typeof subAction[3];
+			id: string;
+			is_active: typeof activeStatus[number];
+	  } & TodoFormSchema)
+	| {
+			subAction: typeof subAction[1];
+			id: string;
+	  }
+	| ({
+			subAction: typeof subAction[2];
+			id: string;
+			is_active: typeof activeStatus[number];
+	  } & Pick<TodoFormSchema, 'priority'>)
+	| ({
+			subAction: typeof subAction[4];
+			id: string;
+	  } & Pick<TodoFormSchema, 'title'>);
 
-type UpdateActivityTitleSchema = Schema &
-	Omit<UpdateActivityTitleParams, 'id'> & {
-		id: string;
-	};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const activityPageAction = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	const subAction = formData.get('subAction') as SubAction | null;
+	const requestData = Object.fromEntries(formData) as unknown as ActionRequestData;
 
 	let success = false;
 
-	if (subAction === 'create') {
+	if (requestData.subAction === 'create') {
 		try {
-			const { subAction, activity_group_id, ...rest } = Object.fromEntries(
-				formData
-			) as unknown as CreateSchema;
-
+			const { subAction, activity_group_id, ...rest } = requestData;
 			await createTodo({ ...rest, activity_group_id: +activity_group_id });
-
 			success = true;
 		} catch {
 			success = false;
 		}
 	}
 
-	if (subAction === 'delete') {
+	if (requestData.subAction === 'update') {
 		try {
-			const { subAction, ...rest } = Object.fromEntries(formData) as unknown as DeleteSchema;
-			await deleteTodo({ ...rest });
+			const { subAction, id, is_active, ...rest } = requestData;
+			const newIsActive = +is_active as Todo['is_active'];
+			await updateTodo({ ...rest, id: +id, is_active: newIsActive });
+
 			success = true;
 		} catch {
 			success = false;
 		}
 	}
 
-	if (subAction === 'check') {
+	if (requestData.subAction === 'delete') {
 		try {
-			const { subAction, ...rest } = Object.fromEntries(formData) as unknown as CheckSchema;
-			await checkTodo({ ...rest });
+			await deleteTodo({ id: +requestData.id });
 			success = true;
 		} catch {
 			success = false;
 		}
 	}
 
-	if (subAction === 'update') {
+	if (requestData.subAction === 'check') {
 		try {
-			const { subAction, id, is_active, ...rest } = Object.fromEntries(
-				formData
-			) as unknown as UpdateSchema;
+			const { subAction, is_active, id, ...rest } = requestData;
+			const newIsActive = +is_active as Todo['is_active'];
 
-			await updateTodo({ ...rest, id: +id, is_active: +is_active as Todo['is_active'] });
+			await checkTodo({ ...rest, id: +id, is_active: newIsActive });
 
 			success = true;
 		} catch {
@@ -131,13 +131,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		}
 	}
 
-	if (subAction === 'updateActivityTitle') {
+	if (requestData.subAction === 'updateActivityTitle') {
 		try {
-			const { subAction, ...rest } = Object.fromEntries(
-				formData
-			) as unknown as UpdateActivityTitleSchema;
-
-			await updateActivityTitle({ ...rest, id: +rest.id });
+			const { subAction, id, ...rest } = requestData;
+			await updateActivityTitle({ ...rest, id: +id });
 
 			success = true;
 		} catch {
@@ -145,7 +142,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		}
 	}
 
-	return json({ subAction, success });
+	return json({ subAction: requestData.subAction, success });
 };
 
 type ActionData = {
@@ -153,79 +150,54 @@ type ActionData = {
 	success: boolean;
 };
 
-interface ColorProps extends React.ComponentPropsWithoutRef<'div'> {
-	color: string;
-}
+const sorts = ['latest', 'oldest', 'az', 'za', 'unfinished'] as const;
 
-const Color = (props: ColorProps) => {
-	const { color, className, style, ...rest } = props;
+type Sort = typeof sorts[number];
 
-	return (
-		<div
-			className={`rounded-full ${className}`}
-			style={{ backgroundColor: color, ...style }}
-			{...rest}
-		/>
-	);
+type SortInfo = {
+	text: string;
 };
 
-enum Sort {
-	Latest = 'latest',
-	Oldest = 'oldest',
-	AZ = 'az',
-	ZA = 'za',
-	Unfinished = 'unfinished'
-}
-
-type SortOption = {
-	value: Sort;
-	display: string;
-};
-
-const sortOptions: SortOption[] = [
-	{
-		value: Sort.Latest,
-		display: 'Terbaru'
+const sortInfo: Record<Sort, SortInfo> = {
+	latest: {
+		text: 'Terbaru'
 	},
-	{
-		value: Sort.Oldest,
-		display: 'Terlama'
+	oldest: {
+		text: 'Terlama'
 	},
-	{
-		value: Sort.AZ,
-		display: 'A-Z'
+	az: {
+		text: 'A-Z'
 	},
-	{
-		value: Sort.ZA,
-		display: 'Z-A'
+	za: {
+		text: 'Z-A'
 	},
-	{
-		value: Sort.Unfinished,
-		display: 'Belum Selesai'
+	unfinished: {
+		text: 'Belum Selesai'
 	}
-];
+};
 
 // TODO: Handle 404
-const ActivityPage = () => {
+export const ActivityPage = () => {
 	useHead({
 		title: 'To Do List - Detail'
 	});
 
-	const createForm = useForm<TodoFormSchema>({ resolver: zodResolver(todoFormSchema) });
-	const updateForm = useForm<TodoFormSchema>({ resolver: zodResolver(todoFormSchema) });
-
 	const submit = useSubmit();
 
 	const [isOpen, setIsOpen] = useState(false);
+	const [todoFormType, setTodoFormType] = useState<typeof subAction[0] | typeof subAction[3]>();
 
 	const loaderData = useLoaderData() as LoaderData;
 
 	const [editActivityTitle, setEditActivityTitle] = useState(false);
 
-	const [selectedTodo, setSelectedTodo] = useState<
-		typeof loaderData['data']['todo_items'][number] | null
-	>(null);
+	const [selectedTodo, setSelectedTodo] =
+		useState<typeof loaderData['data']['todo_items'][number]>();
 	const [isConfirmDeletionOpen, setIsConfirmDeletionOpen] = useState(false);
+
+	const form = useForm<TodoFormSchema>({
+		resolver: zodResolver(todoFormSchema)
+	});
 
 	const handleTrashClick = (todo: typeof loaderData['data']['todo_items'][number]) => {
 		setSelectedTodo(todo);
@@ -233,7 +205,7 @@ const ActivityPage = () => {
 	};
 
 	const handleConfirmDeleteClose = () => {
-		setSelectedTodo(null);
+		setSelectedTodo(undefined);
 		setIsConfirmDeletionOpen(false);
 	};
 
@@ -241,12 +213,12 @@ const ActivityPage = () => {
 	useEffect(() => {
 		let run = true;
 
-		if (actionData?.subAction === 'create' && actionData.success && run) {
+		if (
+			(actionData?.subAction === 'create' || actionData?.subAction === 'update') &&
+			actionData.success &&
+			run
+		) {
 			setIsOpen(false);
-		}
-
-		if (actionData?.subAction === 'update' && actionData.success && run) {
-			setIsEditOpen(false);
 		}
 
 		if (actionData?.subAction === 'delete' && actionData.success && run) {
@@ -258,36 +230,46 @@ const ActivityPage = () => {
 		};
 	}, [actionData]);
 
-	const [isEditOpen, setIsEditOpen] = useState(false);
-
 	const handlePencilTodoClick = (todo: typeof loaderData['data']['todo_items'][number]) => {
+		setTodoFormType('update');
 		setSelectedTodo(todo);
 
-		const relatedPriority = priorities.find(p => p === todo.priority);
-		if (relatedPriority) {
-			setSelectedPriority(relatedPriority);
-		}
+		form.reset({
+			title: todo.title,
+			priority: todo.priority
+		});
 
-		setIsEditOpen(true);
+		setIsOpen(true);
 	};
 
-	const [selectedSort, setSelectedSort] = useState<Sort>(Sort.Latest);
+	const handleCreateTrigger = () => {
+		setTodoFormType('create');
+
+		form.reset({
+			title: undefined,
+			priority: undefined
+		});
+
+		setIsOpen(true);
+	};
+
+	const [selectedSort, setSelectedSort] = useState<Sort>('latest');
 
 	const sortedTodos = loaderData.data.todo_items;
 	sortedTodos.sort((a, b) => {
-		if (selectedSort === Sort.Oldest) {
+		if (selectedSort === 'oldest') {
 			return a.id - b.id;
 		}
 
-		if (selectedSort === Sort.AZ) {
+		if (selectedSort === 'az') {
 			return a.title.localeCompare(b.title);
 		}
 
-		if (selectedSort === Sort.ZA) {
+		if (selectedSort === 'za') {
 			return b.title.localeCompare(a.title);
 		}
 
-		if (selectedSort === Sort.Unfinished) {
+		if (selectedSort === 'unfinished') {
 			return b.is_active - a.is_active;
 		}
 
@@ -296,8 +278,6 @@ const ActivityPage = () => {
 
 	const [isInfoOpen, setIsInfoOpen] = useState(false);
 	const refInfoDiv = useRef<HTMLDivElement>(null);
-
-	const [selectedPriority, setSelectedPriority] = useState<typeof priorities[number] | null>(null);
 
 	const inputRef = useRef<HTMLInputElement>(null);
 	useEffect(() => {
@@ -315,17 +295,17 @@ const ActivityPage = () => {
 
 				const formData = new FormData();
 
-				formData.append('subAction', 'updateActivityTitle');
+				formData.append('subAction', subAction[4]);
 				formData.append('id', `${loaderData.data.id}`);
 				formData.append('title', inputRef.current.value);
 
 				submit(formData, { method: 'post' });
 			}
 		}
-		// Bind the event listener
+
 		document.addEventListener('mousedown', handleClickOutside);
+
 		return () => {
-			// Unbind the event listener on clean up
 			document.removeEventListener('mousedown', handleClickOutside);
 		};
 	}, [inputRef, loaderData.data.id, submit]);
@@ -342,20 +322,16 @@ const ActivityPage = () => {
 
 		formData.append('title', params.title);
 		formData.append('priority', params.priority);
-		formData.append('subAction', 'create');
+		formData.append('subAction', subAction[0]);
 		formData.append('activity_group_id', `${loaderData.data.id}`);
 
 		submit(formData, { method: 'post' });
 	};
 
-	type HandleDeleteParams = {
-		id: number;
-	};
-
-	const handleDelete = (params: HandleDeleteParams) => {
+	const handleDelete = (params: Pick<Todo, 'id'>) => {
 		const formData = new FormData();
 
-		formData.append('subAction', 'delete');
+		formData.append('subAction', subAction[1]);
 		formData.append('id', `${params.id}`);
 
 		submit(formData, { method: 'post' });
@@ -365,7 +341,7 @@ const ActivityPage = () => {
 	const handleCheck = (todo: typeof loaderData['data']['todo_items'][number]) => {
 		const formData = new FormData();
 
-		formData.append('subAction', 'check');
+		formData.append('subAction', subAction[2]);
 		formData.append('id', `${todo.id}`);
 		formData.append('priority', `${todo.priority}`);
 		formData.append('is_active', todo.is_active ? '0' : '1');
@@ -380,7 +356,7 @@ const ActivityPage = () => {
 
 		formData.append('title', params.title);
 		formData.append('priority', params.priority);
-		formData.append('subAction', 'update');
+		formData.append('subAction', subAction[3]);
 		formData.append('id', `${selectedTodo.id}`);
 		formData.append('is_active', `${selectedTodo.is_active}`);
 
@@ -438,24 +414,24 @@ const ActivityPage = () => {
 								className="absolute right-0 top-16 w-[14.6875rem] divide-y divide-[#E5E5E5] rounded-md bg-white text-[#4A4A4A] shadow-[0_6px_15px_5px_rgba(0,0,0,.1)]"
 								data-cy="sort-parent"
 							>
-								{sortOptions.map(sortOption => (
+								{sorts.map(sort => (
 									<Listbox.Option
-										value={sortOption.value}
+										value={sort}
 										className="flex items-center gap-x-[.9375rem] py-[.875rem] px-[1.3125rem]"
 										data-cy="sort-selection"
-										key={sortOption.value}
+										key={sort}
 									>
 										{({ selected }) => (
 											<>
 												<SvgIcon
-													name={sortOption.value}
+													name={sort}
 													width={18}
 													height={18}
 													color="#16ABF8"
 													className="text-[#16ABF8]"
 												/>
 
-												<span className="flex-1 text-[#4A4A4A]">{sortOption.display}</span>
+												<span className="flex-1 text-[#4A4A4A]">{sortInfo[sort].text}</span>
 
 												{selected ? (
 													<div className="text-[#4A4A4A]">
@@ -473,7 +449,7 @@ const ActivityPage = () => {
 					<button
 						type="button"
 						className="flex h-[3.375rem] items-center gap-x-[.375rem] rounded-[2.8125rem] bg-[#16ABF8] pl-[1.375rem] pr-[1.8125rem] text-white"
-						onClick={() => setIsOpen(true)}
+						onClick={handleCreateTrigger}
 						data-cy="todo-add-button"
 					>
 						<SvgIcon name="plus" width={24} height={24} />
@@ -499,9 +475,9 @@ const ActivityPage = () => {
 								data-cy="todo-item-checkbox"
 							/>
 
-							<Color
-								color={priorityInfo[todo.priority].color}
-								className="ml-[1.375rem] h-[.5625rem] w-[.5625rem]"
+							<div
+								className="ml-[1.375rem] h-[.5625rem] w-[.5625rem] rounded-full"
+								style={{ backgroundColor: priorityInfo[todo.priority].color }}
 								data-cy="todo-item-priority-indicator"
 							/>
 
@@ -540,7 +516,7 @@ const ActivityPage = () => {
 				<div className="my-[6.0625rem] flex justify-center">
 					<button
 						type="button"
-						onClick={() => setIsOpen(true)}
+						onClick={handleCreateTrigger}
 						className="max-h-[25.8125rem] max-w-[33.8125rem]"
 						data-cy="todo-empty-state"
 					>
@@ -549,7 +525,6 @@ const ActivityPage = () => {
 				</div>
 			)}
 
-			{/** TODO: Tambah animasi */}
 			<Dialog open={isOpen} onClose={() => setIsOpen(false)} className="relative z-50">
 				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
 
@@ -563,7 +538,7 @@ const ActivityPage = () => {
 								className="text-lg font-semibold leading-[1.6875rem]"
 								data-cy="modal-add-title"
 							>
-								Tambah List Item
+								{todoFormType === 'create' ? 'Tambah List Item' : 'Edit Item'}
 							</Dialog.Title>
 
 							<button
@@ -576,7 +551,9 @@ const ActivityPage = () => {
 							</button>
 						</div>
 
-						<form onSubmit={createForm.handleSubmit(handleCreate)}>
+						<form
+							onSubmit={form.handleSubmit(todoFormType === 'create' ? handleCreate : handleUpdate)}
+						>
 							<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
 								<div className="flex flex-col gap-y-[.5625rem]">
 									<label
@@ -592,16 +569,16 @@ const ActivityPage = () => {
 										placeholder="Tambahkan nama list item"
 										data-cy="modal-add-name-input"
 										id="title"
-										{...createForm.register('title')}
+										{...form.register('title')}
 									/>
 								</div>
 
 								<div className="mt-[1.625rem]">
 									<Controller
-										control={createForm.control}
+										control={form.control}
 										name="priority"
 										render={({ field: { value, ...rest } }) => (
-											<Listbox as="div" value={value} {...rest}>
+											<Listbox as="div" defaultValue={null} {...rest}>
 												<Listbox.Label
 													className="text-xs font-semibold leading-[1.125rem]"
 													data-cy="modal-add-priority-title"
@@ -619,9 +596,9 @@ const ActivityPage = () => {
 																data-cy="modal-add-priority-item"
 																className="flex items-center gap-x-[1.1875rem]"
 															>
-																<Color
-																	color={priorityInfo[value].color}
-																	className="h-[.875rem] w-[.875rem]"
+																<div
+																	className="h-[.875rem] w-[.875rem] rounded-full"
+																	style={{ backgroundColor: priorityInfo[value].color }}
 																/>
 
 																<span className="capitalize">{value.replace('-', ' ')}</span>
@@ -653,9 +630,9 @@ const ActivityPage = () => {
 															>
 																{({ selected }) => (
 																	<>
-																		<Color
-																			color={priorityInfo[priority].color}
-																			className="h-[.875rem] w-[.875rem]"
+																		<div
+																			className="h-[.875rem] w-[.875rem] rounded-full"
+																			style={{ backgroundColor: priorityInfo[priority].color }}
 																		/>
 
 																		<span className="flex-1 capitalize">
@@ -684,7 +661,7 @@ const ActivityPage = () => {
 
 							<div className="flex justify-end border-t border-[#E5E5E5] pr-10 pt-[.9375rem] pb-[1.1875rem]">
 								<button
-									disabled={!createForm.formState.isValid}
+									disabled={!form.formState.isValid}
 									className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
 									data-cy="modal-add-save-button"
 									type="submit"
@@ -696,138 +673,6 @@ const ActivityPage = () => {
 					</Dialog.Panel>
 				</div>
 			</Dialog>
-
-			{/* * TODO: Tambah animasi
-			<Dialog open={isEditOpen} onClose={() => setIsEditOpen(false)} className="relative z-50">
-				<div className="fixed inset-0 bg-black/50" aria-hidden="true" />
-
-				<div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4">
-					<Dialog.Panel className="w-[51.875rem] rounded-xl bg-white shadow-[0_4px_10px_rgba(0,0,0,.1)]">
-						<div className="flex items-center justify-between border-b border-[#E5E5E5] pt-6 pr-[2.5625rem] pb-[1.1875rem] pl-[1.875rem]">
-							<Dialog.Title className="text-lg font-semibold leading-[1.6875rem]">
-								Edit Item
-							</Dialog.Title>
-
-							<button type="button" className="text-[#A4A4A4]" onClick={() => setIsEditOpen(false)}>
-								<SvgIcon name="close" width={24} height={24} color="#A4A4A4" />
-							</button>
-						</div>
-
-						<form onSubmit={updateForm.handleSubmit(handleUpdate)}>
-							<div className="pl-[1.875rem] pr-[2.5625rem] pt-[2.375rem] pb-[1.4375rem]">
-								<div className="flex flex-col gap-y-[.5625rem]">
-									<label className="text-xs font-semibold leading-[1.125rem]" htmlFor="title">
-										NAMA LIST ITEM
-									</label>
-
-									<input
-										className="h-[3.25rem] rounded-md border border-[#E5E5E5] px-[1.125rem] focus:border-[#16ABF8] focus:outline-none"
-										placeholder="Tambahkan nama list item"
-										id="title"
-										defaultValue={selectedTodo?.title}
-										{...updateForm.register('title')}
-									/>
-								</div>
-
-								<div className="mt-[1.625rem]">
-									<Controller
-										control={updateForm.control}
-										defaultValue={selectedTodo?.priority}
-										name="priority"
-										render={({ field: { onChange, ...rest } }) => (
-											<Listbox
-												as="div"
-												onChange={priority => {
-													onChange(priority);
-
-													const relatedPriority = priorities.find(p => p.name === priority);
-													if (relatedPriority) {
-														setSelectedPriority(relatedPriority);
-													}
-												}}
-												{...rest}
-											>
-												<Listbox.Label className="text-xs font-semibold leading-[1.125rem]">
-													PRIORITY
-												</Listbox.Label>
-
-												<div className="relative mt-[.5625rem] box-border max-w-[12.8125rem]">
-													<Listbox.Button className="flex w-full items-center justify-between rounded-md border border-[#E5E5E5] px-[1.0625rem] py-[.875rem] focus:border-[#16ABF8]">
-														{selectedPriority ? (
-															<div className="flex items-center gap-x-[1.1875rem]">
-																<Color
-																	color={selectedPriority.color}
-																	className="h-[.875rem] w-[.875rem]"
-																/>
-
-																<span>{selectedPriority.display}</span>
-															</div>
-														) : (
-															<span>Pilih priority</span>
-														)}
-
-														<SvgIcon name="chevron-down" width={24} height={24} color="#111111" />
-													</Listbox.Button>
-
-													<Listbox.Options className="absolute top-0 left-0 w-full divide-y divide-[#E5E5E5] overflow-hidden rounded-md border border-[#16ABF8] bg-white">
-														<Listbox.Option
-															disabled={true}
-															value={null}
-															className="flex items-center justify-between bg-[#F4F4F4] py-[.875rem] pl-[1.0625rem] pr-[1.4375rem]"
-														>
-															<span>Pilih priority</span>
-
-															<SvgIcon name="chevron-up" width={24} height={24} color="#111111" />
-														</Listbox.Option>
-
-														{priorities.map(priority => (
-															<Listbox.Option
-																key={priority.name}
-																value={priority.name}
-																className="flex items-center gap-x-[1.1875rem] py-[.875rem] pl-[1.0625rem] pr-[1.4375rem] text-[#4A4A4A] hover:cursor-pointer"
-															>
-																{({ selected }) => (
-																	<>
-																		<Color
-																			color={priority.color}
-																			className="h-[.875rem] w-[.875rem]"
-																		/>
-
-																		<span className="flex-1">{priority.display}</span>
-
-																		{selected ? (
-																			<SvgIcon
-																				name="check"
-																				width={18}
-																				height={18}
-																				color="#4A4A4A"
-																			/>
-																		) : null}
-																	</>
-																)}
-															</Listbox.Option>
-														))}
-													</Listbox.Options>
-												</div>
-											</Listbox>
-										)}
-									/>
-								</div>
-							</div>
-
-							<div className="flex justify-end border-t border-[#E5E5E5] pr-10 pt-[.9375rem] pb-[1.1875rem]">
-								<button
-									disabled={!updateForm.formState.isValid}
-									className="rounded-[2.8125rem] bg-[#16ABF8] py-[.84375rem] px-[2.4375rem] text-lg font-semibold leading-[1.6875rem] text-white disabled:opacity-20"
-									type="submit"
-								>
-									Simpan
-								</button>
-							</div>
-						</form>
-					</Dialog.Panel>
-				</div>
-			</Dialog> */}
 
 			{/** TODO: Tambah animasi */}
 			<Dialog
@@ -914,5 +759,3 @@ const ActivityPage = () => {
 		</>
 	);
 };
-
-export default ActivityPage;

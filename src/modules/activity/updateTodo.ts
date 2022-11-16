@@ -1,7 +1,6 @@
-import type { TodoFormSchema } from '../schemas/todo';
-import type { Todo } from '../utils';
+import type { Todo } from '../../utils';
 
-export type UpdateTodoParams = Pick<Todo, 'id' | 'is_active'> & TodoFormSchema;
+type UpdateTodoParams = Pick<Todo, 'id' | 'is_active' | 'title' | 'priority'>;
 
 export const updateTodo = async (params: UpdateTodoParams) => {
 	const { id, ...rest } = params;

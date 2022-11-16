@@ -9,7 +9,7 @@ export const RootPage = () => {
 	return (
 		<>
 			<header
-				className="sticky top-0 bg-[#16ABF8] shadow-[0_4px_10px_rgba(0,0,0,0.1)]"
+				className="sticky top-0 z-40 bg-[#16ABF8] shadow-[0_4px_10px_rgba(0,0,0,0.1)]"
 				data-cy="header-background"
 			>
 				<div className="mx-auto max-w-[62.5rem] pt-[2.375rem] pb-[1.9375rem]">

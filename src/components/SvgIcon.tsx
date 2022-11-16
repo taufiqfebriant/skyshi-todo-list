@@ -4,7 +4,7 @@ interface Props extends React.ComponentPropsWithoutRef<'svg'> {
 	color?: string;
 }
 
-const SvgIcon = ({ name, prefix = 'icon', color = '#ffffff', ...rest }: Props) => {
+export const SvgIcon = ({ name, prefix = 'icon', color = '#ffffff', ...rest }: Props) => {
 	const symbolId = `#${prefix}-${name}`;
 
 	return (
@@ -13,5 +13,3 @@ const SvgIcon = ({ name, prefix = 'icon', color = '#ffffff', ...rest }: Props) =
 		</svg>
 	);
 };
-
-export default SvgIcon;

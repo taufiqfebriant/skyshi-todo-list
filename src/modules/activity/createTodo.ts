@@ -1,9 +1,8 @@
-import type { TodoFormSchema } from '../schemas/todo';
-import type { Todo } from '../utils';
+import type { Todo } from '../../utils';
 
-export type CreateTodoParams = Pick<Todo, 'activity_group_id'> & TodoFormSchema;
+type Params = Pick<Todo, 'activity_group_id' | 'priority' | 'title'>;
 
-export const createTodo = async (params: CreateTodoParams) => {
+export const createTodo = async (params: Params) => {
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items`, {
 		method: 'POST',
 		body: JSON.stringify(params),

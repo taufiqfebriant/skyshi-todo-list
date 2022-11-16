@@ -1,8 +1,8 @@
-export type DeleteTodoSchema = {
-	id: number;
-};
+import type { Todo } from '../../utils';
 
-export const deleteTodo = async (params: DeleteTodoSchema) => {
+type Params = Pick<Todo, 'id'>;
+
+export const deleteTodo = async (params: Params) => {
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/todo-items/${params.id}`, {
 		method: 'DELETE'
 	});
